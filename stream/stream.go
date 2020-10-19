@@ -3,6 +3,7 @@ package stream
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 )
 
 type Stream struct {
+	isStarted          bool
 	fileName           string
 	rtmpAddress        string
 	channelCommand     chan *exec.Cmd
@@ -19,7 +21,7 @@ type Stream struct {
 
 func InitStream() Stream {
 	return Stream{
-		fileName:           "https://matchtv.ru/vdl/playlist/133529/adaptive/1603070430/f368e523f7b045189de6d704157606d3/web.m3u8",
+		fileName:           "https://matchtv.ru/vdl/playlist/133529/adaptive/1603155718/1ec074562f2f7e016f255cb243e87f36/web.m3u8",
 		rtmpAddress:        "rtmp://0.0.0.0:1935/stream/mystream",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
@@ -28,14 +30,19 @@ func InitStream() Stream {
 }
 
 func (s *Stream) Start(queryValues url.Values) {
+	if s.isStarted || !s.isFileManifestAvailable() {
+		return
+	}
+	//todo: check rtmp is available
 	cmd := s.prepareStreamCmd(queryValues)
-
 	go s.startCommandAtChannel(cmd)
 	go s.receiveChannelData()
 }
 
 func (s *Stream) Stop() {
-	s.stopChannelCommand <- true
+	if s.isStarted {
+		s.stopChannelCommand <- true
+	}
 }
 
 func (s *Stream) prepareStreamCmd(queryValues url.Values) *exec.Cmd {
@@ -44,6 +51,18 @@ func (s *Stream) prepareStreamCmd(queryValues url.Values) *exec.Cmd {
 	}
 
 	return exec.Command("ffmpeg", "-i", s.fileName, "-c", "copy", "-f", "flv", s.rtmpAddress)
+}
+
+func (s *Stream) isFileManifestAvailable() bool {
+	resp, err := http.Get(s.fileName)
+	if err != nil {
+		log.Fatalf("Error while check manifest %v with err: %v\n", s.fileName, err)
+	}
+	isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
+	if !isOk {
+		fmt.Printf("File %v is not available %v\n", s.fileName, resp.StatusCode)
+	}
+	return isOk
 }
 
 func (s *Stream) receiveChannelData() {
@@ -68,12 +87,12 @@ func (s *Stream) killStream() {
 	if err != nil {
 		log.Fatalf("Cant kill process %v, error: %v", command.Process.Pid, err)
 	}
-	errWait := command.Wait()
+
+	_, errWait := command.Process.Wait()
 	if errWait != nil {
-		log.Fatalf("Cant wait process %v, error: %v", command.Process.Pid, err)
+		log.Fatalf("Cant wait process %v, error: %v", command.Process.Pid, errWait)
 	}
-	fmt.Println("Closed channel stream")
-	close(s.channelCommand)
+	s.isStarted = false
 }
 
 func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
@@ -84,6 +103,6 @@ func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
 	if err != nil {
 		log.Fatalf("Cant start rtmp stream %s\n", err)
 	}
-
+	s.isStarted = true
 	s.channelCommand <- cmd
 }

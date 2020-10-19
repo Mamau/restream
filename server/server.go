@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/server/api/v1"
@@ -13,7 +14,7 @@ import (
 )
 
 func serverStarted(w http.ResponseWriter, r *http.Request) {
-	_, err := w.Write([]byte("<strong>Stream starting...</strong>"))
+	_, err := w.Write([]byte("Stream starting..."))
 	if err != nil {
 		log.Fatalf("Error wrtie response %v", err)
 	}
@@ -50,6 +51,7 @@ func Start() {
 			log.Fatalf("Cant listen %v", err)
 		}
 	}()
+	fmt.Printf("Server starting at: http://localhost%v\n", srv.Addr)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
