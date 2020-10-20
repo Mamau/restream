@@ -21,7 +21,7 @@ type Stream struct {
 
 func InitStream() Stream {
 	return Stream{
-		fileName:           "https://matchtv.ru/vdl/playlist/133529/adaptive/1603155718/1ec074562f2f7e016f255cb243e87f36/web.m3u8",
+		fileName:           "https://matchtv.ru/vdl/playlist/133529/adaptive/1603241852/e00f0f847bab9f4bf0faef8eed6666ff/web.m3u8",
 		rtmpAddress:        "rtmp://0.0.0.0:1935/stream/mystream",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
@@ -30,10 +30,9 @@ func InitStream() Stream {
 }
 
 func (s *Stream) Start(queryValues url.Values) {
-	if s.isStarted || !s.isFileManifestAvailable() {
+	if s.isStarted || !s.isFileManifestAvailable() || !s.isNginxRestreamRunning() {
 		return
 	}
-	//todo: check rtmp is available
 	cmd := s.prepareStreamCmd(queryValues)
 	go s.startCommandAtChannel(cmd)
 	go s.receiveChannelData()
@@ -61,6 +60,20 @@ func (s *Stream) isFileManifestAvailable() bool {
 	isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
 	if !isOk {
 		fmt.Printf("File %v is not available %v\n", s.fileName, resp.StatusCode)
+	}
+	return isOk
+}
+
+func (s *Stream) isNginxRestreamRunning() bool {
+	resp, err := http.Get("http://0.0.0.0:8081")
+	if err != nil {
+		fmt.Printf("Nginx is not running, error: %v\n", err)
+		return false
+	}
+
+	isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
+	if !isOk {
+		fmt.Printf("Nginx restream %v is not available %v\n", s.rtmpAddress, resp.StatusCode)
 	}
 	return isOk
 }
