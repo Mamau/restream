@@ -5,20 +5,14 @@ import (
 	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/mamau/restream/server/api/v1"
+	"github.com/mamau/restream/routes/api/v1"
+	apiMiddleware "github.com/mamau/restream/routes/middleware"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 )
-
-func serverStarted(w http.ResponseWriter, r *http.Request) {
-	_, err := w.Write([]byte("Stream starting..."))
-	if err != nil {
-		log.Fatalf("Error wrtie response %v", err)
-	}
-}
 
 func newRouter() http.Handler {
 	router := chi.NewRouter()
@@ -27,8 +21,7 @@ func newRouter() http.Handler {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * time.Second))
-
-	router.Get("/", serverStarted)
+	router.Use(apiMiddleware.IsNginxRestreamRunning)
 
 	router.Mount("/api/v1/", v1.NewRouter())
 
