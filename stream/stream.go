@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -8,10 +9,12 @@ import (
 	"time"
 )
 
+const RTMP_ADDRESS = "rtmp://0.0.0.0:1935/stream/"
+
 type Stream struct {
 	isStarted          bool
 	FileName           string `json:"filename"`
-	RtmpAddress        string `json:"rtmpaddress"`
+	Name               string `json:"name"`
 	channelCommand     chan *exec.Cmd
 	stopChannelCommand chan bool
 	streamDuration     time.Duration
@@ -19,8 +22,6 @@ type Stream struct {
 
 func InitStream() Stream {
 	return Stream{
-		FileName:           "",
-		RtmpAddress:        "rtmp://0.0.0.0:1935/stream/mystream",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
 		streamDuration:     10 * time.Minute,
@@ -31,7 +32,7 @@ func (s *Stream) Start() {
 	if s.isStarted {
 		return
 	}
-	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.RtmpAddress)
+	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.getStreamAddress())
 	go s.startCommandAtChannel(cmd)
 	go s.receiveChannelData()
 }
@@ -40,6 +41,13 @@ func (s *Stream) Stop() {
 	if s.isStarted {
 		s.stopChannelCommand <- true
 	}
+}
+
+func (s *Stream) getStreamAddress() string {
+	address := bytes.Buffer{}
+	address.WriteString(RTMP_ADDRESS)
+	address.WriteString(s.Name)
+	return address.String()
 }
 
 func (s *Stream) receiveChannelData() {

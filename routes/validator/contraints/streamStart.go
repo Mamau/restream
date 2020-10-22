@@ -19,6 +19,7 @@ func init() {
 func (s StreamStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
 		"filename": []string{"required", "file_manifest_available"},
+		"name":     []string{"required"},
 	}
 
 	opts := govalidator.Options{
@@ -43,19 +44,5 @@ func isFileManifestAvailable(field string, rule string, message string, value in
 		return fmt.Errorf("File %v is not available %v\n", fileManifest, resp.StatusCode)
 	}
 
-	return nil
-}
-
-func isNginxRestreamRunning(field string, rule string, message string, value interface{}) error {
-	addr := "http://0.0.0.0:8081"
-	resp, err := http.Get(addr)
-	if err != nil {
-		return fmt.Errorf("Nginx is not running, error: %v\n", err)
-	}
-
-	isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
-	if !isOk {
-		return fmt.Errorf("Nginx restream %v is not available %v\n", addr, resp.StatusCode)
-	}
 	return nil
 }

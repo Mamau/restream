@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/mamau/restream/routes/response"
 	"github.com/mamau/restream/routes/validator"
@@ -9,19 +12,46 @@ import (
 	"net/http"
 )
 
-var stream4eg = stream.InitStream()
+var streams = map[string]*stream.Stream{}
 
 func streamStart(w http.ResponseWriter, r *http.Request) {
-	if !validator.Validate(w, r, contraints.StreamStart{Stream: &stream4eg}) {
+	var strm = stream.InitStream()
+	if !validator.Validate(w, r, contraints.StreamStart{Stream: &strm}) {
 		return
 	}
-	stream4eg.Start()
+
+	streams[strm.Name] = &strm
+	strm.Start()
+
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
 func streamStop(w http.ResponseWriter, r *http.Request) {
-	stream4eg.Stop()
+	strm, err := getNameStream(r)
+	if err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	strm.Stop()
 	response.Json(w, "Stream stopping...", http.StatusOK)
+}
+
+func getNameStream(r *http.Request) (*stream.Stream, error) {
+	type tmpStream struct {
+		Name string
+	}
+	decoder := json.NewDecoder(r.Body)
+	var ts tmpStream
+	err := decoder.Decode(&ts)
+	if err != nil {
+		return &stream.Stream{}, err
+	}
+	strm, ok := streams[ts.Name]
+	if !ok {
+		return &stream.Stream{}, errors.New(fmt.Sprintf("Not found stream by name: %v", ts.Name))
+	}
+	delete(streams, ts.Name)
+	return strm, nil
 }
 
 func NewRouter() http.Handler {
