@@ -28,6 +28,7 @@ func newRouter() http.Handler {
 }
 
 func Start() {
+	SugarLogger.Info("In server!!", "omg", "eee")
 	handler := newRouter()
 	srv := &http.Server{
 		Addr:         ":89",

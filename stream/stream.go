@@ -32,7 +32,8 @@ func (s *Stream) Start() {
 	if s.isStarted {
 		return
 	}
-	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.getStreamAddress())
+	//cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.getStreamAddress())
+	cmd := exec.Command("ping", "ya.ru")
 	go s.startCommandAtChannel(cmd)
 	go s.receiveChannelData()
 }

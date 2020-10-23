@@ -1,10 +1,8 @@
 package v1
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
 	"github.com/go-chi/chi"
+	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/routes/response"
 	"github.com/mamau/restream/routes/validator"
 	"github.com/mamau/restream/routes/validator/contraints"
@@ -12,22 +10,38 @@ import (
 	"net/http"
 )
 
-var streams = map[string]*stream.Stream{}
+var Live = stream.Live{
+	Streams: map[string]*stream.Stream{},
+}
 
 func streamStart(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.InitStream()
 	if !validator.Validate(w, r, contraints.StreamStart{Stream: &strm}) {
 		return
 	}
+	err := Live.SetStream(&strm)
+	if err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	streams[strm.Name] = &strm
 	strm.Start()
-
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
 func streamStop(w http.ResponseWriter, r *http.Request) {
-	strm, err := getNameStream(r)
+	type dataStream struct {
+		Name string
+	}
+	var ds dataStream
+
+	err := helpers.JsonRequestToMap(r, &ds)
+	if err != nil {
+		response.Json(w, "error while parse request", http.StatusBadRequest)
+		return
+	}
+
+	strm, err := Live.DeleteStream(ds.Name)
 	if err != nil {
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
@@ -36,22 +50,8 @@ func streamStop(w http.ResponseWriter, r *http.Request) {
 	response.Json(w, "Stream stopping...", http.StatusOK)
 }
 
-func getNameStream(r *http.Request) (*stream.Stream, error) {
-	type tmpStream struct {
-		Name string
-	}
-	decoder := json.NewDecoder(r.Body)
-	var ts tmpStream
-	err := decoder.Decode(&ts)
-	if err != nil {
-		return &stream.Stream{}, err
-	}
-	strm, ok := streams[ts.Name]
-	if !ok {
-		return &stream.Stream{}, errors.New(fmt.Sprintf("Not found stream by name: %v", ts.Name))
-	}
-	delete(streams, ts.Name)
-	return strm, nil
+func streams(w http.ResponseWriter, r *http.Request) {
+	response.JsonStruct(w, Live.AllStreams(), http.StatusOK)
 }
 
 func NewRouter() http.Handler {
@@ -59,6 +59,7 @@ func NewRouter() http.Handler {
 
 	r.Post("/stream-start", streamStart)
 	r.Post("/stream-stop", streamStop)
+	r.Post("/streams", streams)
 
 	return r
 }
