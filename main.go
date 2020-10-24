@@ -2,9 +2,10 @@ package main
 
 import (
 	"github.com/mamau/restream/server"
+	"github.com/mamau/restream/storage"
 )
 
 func main() {
-	server.InitLogger()
+	storage.InitLogger()
 	server.Start()
 }

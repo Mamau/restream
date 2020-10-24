@@ -2,9 +2,7 @@ package stream
 
 import (
 	"bytes"
-	"fmt"
-	"log"
-	"os"
+	"go.uber.org/zap"
 	"os/exec"
 	"time"
 )
@@ -20,8 +18,8 @@ type Stream struct {
 	streamDuration     time.Duration
 }
 
-func InitStream() Stream {
-	return Stream{
+func InitStream() *Stream {
+	return &Stream{
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
 		streamDuration:     10 * time.Minute,
@@ -60,6 +58,9 @@ func (s *Stream) receiveChannelData() {
 				return
 			}
 		case <-time.After(s.streamDuration):
+			zap.L().Info("kill after time",
+				zap.Int("duration", int(s.streamDuration)),
+			)
 			s.killStream()
 			return
 		}
@@ -68,26 +69,42 @@ func (s *Stream) receiveChannelData() {
 
 func (s *Stream) killStream() {
 	command := <-s.channelCommand
-	fmt.Println("Kill process with PID: ", command.Process.Pid)
+	zap.L().Info("kill stream",
+		zap.String("stream", s.Name),
+		zap.Int("PID", command.Process.Pid),
+	)
 	err := command.Process.Kill()
 	if err != nil {
-		log.Fatalf("Cant kill process %v, error: %v", command.Process.Pid, err)
+		zap.L().Fatal("cant kill process",
+			zap.String("stream", s.Name),
+			zap.Int("PID", command.Process.Pid),
+			zap.String("error", err.Error()),
+		)
 	}
 
 	_, errWait := command.Process.Wait()
 	if errWait != nil {
-		log.Fatalf("Cant wait process %v, error: %v", command.Process.Pid, errWait)
+		zap.L().Fatal("cant wait process",
+			zap.String("stream", s.Name),
+			zap.Int("PID", command.Process.Pid),
+			zap.String("error", errWait.Error()),
+		)
 	}
 	s.isStarted = false
 }
 
 func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
+	zap.L().Info("start command",
+		zap.String("stream", s.Name),
+		zap.String("cmd", cmd.String()),
+	)
 	err := cmd.Start()
 	if err != nil {
-		log.Fatalf("Cant start rtmp stream %s\n", err)
+		zap.L().Fatal("failed start command:",
+			zap.String("stream", s.Name),
+			zap.String("cmd", cmd.String()),
+			zap.String("error", err.Error()),
+		)
 	}
 	s.isStarted = true
 	s.channelCommand <- cmd

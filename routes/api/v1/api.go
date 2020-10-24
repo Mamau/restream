@@ -7,6 +7,7 @@ import (
 	"github.com/mamau/restream/routes/validator"
 	"github.com/mamau/restream/routes/validator/contraints"
 	"github.com/mamau/restream/stream"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -16,11 +17,15 @@ var Live = stream.Live{
 
 func streamStart(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.InitStream()
-	if !validator.Validate(w, r, contraints.StreamStart{Stream: &strm}) {
+	if !validator.Validate(w, r, contraints.StreamStart{Stream: strm}) {
 		return
 	}
-	err := Live.SetStream(&strm)
+	err := Live.SetStream(strm)
 	if err != nil {
+		zap.L().Error("cant start stream",
+			zap.String("stream", strm.Name),
+			zap.String("error", err.Error()),
+		)
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -37,12 +42,19 @@ func streamStop(w http.ResponseWriter, r *http.Request) {
 
 	err := helpers.JsonRequestToMap(r, &ds)
 	if err != nil {
+		zap.L().Error("error while parse request",
+			zap.String("stream", ds.Name),
+			zap.String("error", err.Error()),
+		)
 		response.Json(w, "error while parse request", http.StatusBadRequest)
 		return
 	}
 
 	strm, err := Live.DeleteStream(ds.Name)
 	if err != nil {
+		zap.L().Error("error stopping stream",
+			zap.String("error", err.Error()),
+		)
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}

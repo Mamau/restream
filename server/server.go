@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/routes/api/v1"
-	"log"
+	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
@@ -28,7 +28,6 @@ func newRouter() http.Handler {
 }
 
 func Start() {
-	SugarLogger.Info("In server!!", "omg", "eee")
 	handler := newRouter()
 	srv := &http.Server{
 		Addr:         ":89",
@@ -41,7 +40,9 @@ func Start() {
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Fatalf("Cant listen %v", err)
+			zap.L().Fatal("cant listen",
+				zap.String("duration", err.Error()),
+			)
 		}
 	}()
 	fmt.Printf("Server starting at: http://localhost%v\n", srv.Addr)
