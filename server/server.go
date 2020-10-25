@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/routes/api/v1"
+	apiMiddleware "github.com/mamau/restream/routes/middleware"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -20,7 +21,7 @@ func newRouter() http.Handler {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * time.Second))
-	//router.Use(apiMiddleware.IsNginxRestreamRunning)
+	router.Use(apiMiddleware.IsNginxRestreamRunning)
 
 	router.Mount("/api/v1/", v1.NewRouter())
 

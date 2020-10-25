@@ -31,7 +31,8 @@ func (s *Stream) Start() {
 		return
 	}
 	//cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.getStreamAddress())
-	cmd := exec.Command("ping", "ya.ru")
+	cmd := exec.Command("ffmpeg", "-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress())
+	//cmd := exec.Command("ping", "ya.ru")
 	go s.startCommandAtChannel(cmd)
 	go s.receiveChannelData()
 }
@@ -98,6 +99,8 @@ func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
 		zap.String("stream", s.Name),
 		zap.String("cmd", cmd.String()),
 	)
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	if err != nil {
 		zap.L().Fatal("failed start command:",
