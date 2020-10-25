@@ -71,7 +71,7 @@ func NewRouter() http.Handler {
 
 	r.Post("/stream-start", streamStart)
 	r.Post("/stream-stop", streamStop)
-	r.Post("/streams", streams)
+	r.Get("/streams", streams)
 
 	return r
 }
