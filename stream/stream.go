@@ -18,7 +18,7 @@ type Stream struct {
 	streamDuration     time.Duration
 }
 
-func InitStream() *Stream {
+func NewStream() *Stream {
 	return &Stream{
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),

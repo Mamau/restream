@@ -11,6 +11,12 @@ type Live struct {
 	Streams map[string]*Stream
 }
 
+func NewLive() *Live {
+	return &Live{
+		Streams: make(map[string]*Stream),
+	}
+}
+
 func (l *Live) AllStreams() map[string]*Stream {
 	return l.Streams
 }

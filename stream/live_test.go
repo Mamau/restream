@@ -2,18 +2,36 @@ package stream
 
 import "testing"
 
+func TestSetStream(t *testing.T) {
+	streamName := "someStream"
+	live := NewLive()
+	strm := NewStream()
+	strm.Name = streamName
+
+	if err := live.SetStream(strm); err != nil {
+		t.Error("Error setting stream")
+	}
+
+	currentStream, err := live.GetStream(streamName)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	if currentStream.Name != streamName {
+		t.Errorf("Stream doesnt have stream with name %v\n", currentStream.Name)
+	}
+}
+
 func TestAllStreams(t *testing.T) {
 	mapStrm := map[string]*Stream{}
-	test := InitStream()
+	test := NewStream()
 	test.Name = "test"
 	mapStrm["test"] = test
-	test2 := InitStream()
+	test2 := NewStream()
 	test2.Name = "test2"
 	mapStrm["test2"] = test2
 
-	live := Live{
-		Streams: mapStrm,
-	}
+	live := NewLive()
 	for key, val := range live.AllStreams() {
 		value, ok := mapStrm[key]
 		if !ok {

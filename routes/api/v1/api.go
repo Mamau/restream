@@ -11,12 +11,10 @@ import (
 	"net/http"
 )
 
-var Live = stream.Live{
-	Streams: map[string]*stream.Stream{},
-}
+var Live = stream.NewLive()
 
 func streamStart(w http.ResponseWriter, r *http.Request) {
-	var strm = stream.InitStream()
+	var strm = stream.NewStream()
 	if !validator.Validate(w, r, contraints.StreamStart{Stream: strm}) {
 		return
 	}
