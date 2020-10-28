@@ -2,7 +2,9 @@ package stream
 
 import (
 	"bytes"
+	"fmt"
 	"go.uber.org/zap"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -13,6 +15,7 @@ type Stream struct {
 	isStarted          bool
 	FileName           string `json:"filename"`
 	Name               string `json:"name"`
+	quality            string
 	channelCommand     chan *exec.Cmd
 	stopChannelCommand chan bool
 	streamDuration     time.Duration
@@ -20,6 +23,7 @@ type Stream struct {
 
 func NewStream() *Stream {
 	return &Stream{
+		quality:            "p:1",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
 		streamDuration:     10 * time.Minute,
@@ -33,14 +37,27 @@ func (s *Stream) Start() {
 	//cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.getStreamAddress())
 	cmd := exec.Command("ffmpeg", "-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress())
 	//cmd := exec.Command("ping", "ya.ru")
-	go s.startCommandAtChannel(cmd)
-	go s.receiveChannelData()
+	s.startFfmpegCmd(cmd)
 }
 
 func (s *Stream) Stop() {
 	if s.isStarted {
 		s.stopChannelCommand <- true
 	}
+}
+
+func (s *Stream) Download() {
+	if s.isStarted {
+		return
+	}
+	outpuFile := fmt.Sprintf("%v.mp4", s.Name)
+	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outpuFile)
+	s.startFfmpegCmd(cmd)
+}
+
+func (s *Stream) startFfmpegCmd(cmd *exec.Cmd) {
+	go s.startCommandAtChannel(cmd)
+	go s.receiveChannelData()
 }
 
 func (s *Stream) getStreamAddress() string {
@@ -99,8 +116,8 @@ func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
 		zap.String("stream", s.Name),
 		zap.String("cmd", cmd.String()),
 	)
-	//cmd.Stdout = os.Stdout
-	//cmd.Stderr = os.Stderr
+
+	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	if err != nil {
 		zap.L().Fatal("failed start command:",

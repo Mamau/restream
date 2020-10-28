@@ -18,8 +18,7 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 	if !validator.Validate(w, r, contraints.StreamStart{Stream: strm}) {
 		return
 	}
-	err := Live.SetStream(strm)
-	if err != nil {
+	if err := Live.SetStream(strm); err != nil {
 		zap.L().Error("cant start stream",
 			zap.String("stream", strm.Name),
 			zap.String("error", err.Error()),
@@ -30,6 +29,23 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 
 	strm.Start()
 	response.Json(w, "Stream starting...", http.StatusOK)
+}
+
+func streamDownload(w http.ResponseWriter, r *http.Request) {
+	var strm = stream.NewStream()
+	if !validator.Validate(w, r, contraints.StreamStart{Stream: strm}) {
+		return
+	}
+	if err := Live.SetStream(strm); err != nil {
+		zap.L().Error("cant start stream",
+			zap.String("stream", strm.Name),
+			zap.String("error", err.Error()),
+		)
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	strm.Download()
+	response.JsonStruct(w, "Stream downloading...", http.StatusOK)
 }
 
 func streamStop(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +85,7 @@ func NewRouter() http.Handler {
 
 	r.Post("/stream-start", streamStart)
 	r.Post("/stream-stop", streamStop)
+	r.Post("/stream-download", streamDownload)
 	r.Get("/streams", streams)
 
 	return r
