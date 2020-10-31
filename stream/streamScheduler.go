@@ -3,6 +3,7 @@ package stream
 import (
 	"fmt"
 	"go.uber.org/zap"
+	"strconv"
 	"time"
 )
 
@@ -30,12 +31,19 @@ func (s *ScheduledStream) scheduleCmd() {
 	t := time.Now()
 	start := s.StartAt - t.Unix()
 	stop := s.StopAt - t.Unix()
+
+	stopAfterSec := strconv.FormatInt(stop, 10)
+	startAt := time.Unix(s.StartAt, 10).Format("15_04_05_02.01.2006")
+	stopAt := time.Unix(s.StopAt, 10).Format("15_04_05_02.01.2006")
+
 	zap.L().Info("stream scheduled download",
-		zap.Int("start", int(start)),
-		zap.Int("stop", int(stop)),
+		zap.String("start", startAt),
+		zap.String("stop", stopAt),
 	)
 
-	s.Name = fmt.Sprintf("%v_start_at_%v_stop_at_%v.mp4", s.Name, start, stop)
-	time.AfterFunc(time.Duration(start)*time.Second, s.Download)
-	time.AfterFunc(time.Duration(stop)*time.Second, s.killStream)
+	s.Name = fmt.Sprintf("%v_start_at_%v_stop_at_%v", s.Name, startAt, stopAt)
+	time.AfterFunc(time.Duration(start)*time.Second, func() {
+		s.Download(stopAfterSec)
+	})
+	//time.AfterFunc(time.Duration(stop)*time.Second, s.killStream)
 }

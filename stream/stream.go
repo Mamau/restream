@@ -27,7 +27,7 @@ func NewStream() *Stream {
 		quality:            "p:1",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
-		streamDuration:     120 * time.Minute,
+		streamDuration:     60 * time.Second,
 	}
 }
 
@@ -46,12 +46,12 @@ func (s *Stream) Stop() {
 	}
 }
 
-func (s *Stream) Download() {
+func (s *Stream) Download(stopAt string) {
 	if s.isStarted {
 		return
 	}
 	outputFile := fmt.Sprintf("%v.mp4", s.Name)
-	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile)
+	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-t", stopAt, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile)
 	go s.execCommandAtChannel(cmd)
 }
 
