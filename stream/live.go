@@ -8,12 +8,25 @@ import (
 )
 
 type Live struct {
-	Streams map[string]*Stream
+	Streams          map[string]*Stream
+	ScheduledStreams map[string]*ScheduledStream
+}
+
+func (l *Live) ScheduleStream(s *ScheduledStream) error {
+	_, ok := l.ScheduledStreams[s.Name]
+	if ok {
+		return errors.New(fmt.Sprintf("Stream %v already scheduled at %v\n", s.Name, s.StartAt))
+	}
+
+	l.ScheduledStreams[s.Name] = s
+	s.ScheduleDownload()
+	return nil
 }
 
 func NewLive() *Live {
 	return &Live{
-		Streams: make(map[string]*Stream),
+		Streams:          make(map[string]*Stream),
+		ScheduledStreams: make(map[string]*ScheduledStream),
 	}
 }
 

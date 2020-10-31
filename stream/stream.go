@@ -18,7 +18,8 @@ type Stream struct {
 	quality            string
 	channelCommand     chan *exec.Cmd
 	stopChannelCommand chan bool
-	streamDuration     time.Duration
+
+	streamDuration time.Duration
 }
 
 func NewStream() *Stream {
@@ -26,7 +27,7 @@ func NewStream() *Stream {
 		quality:            "p:1",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
-		streamDuration:     10 * time.Minute,
+		streamDuration:     120 * time.Minute,
 	}
 }
 
@@ -34,10 +35,9 @@ func (s *Stream) Start() {
 	if s.isStarted {
 		return
 	}
-	//cmd := exec.Command("ffmpeg", "-i", s.FileName, "-c", "copy", "-f", "flv", s.getStreamAddress())
 	cmd := exec.Command("ffmpeg", "-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress())
-	//cmd := exec.Command("ping", "ya.ru")
-	s.startFfmpegCmd(cmd)
+	go s.execCommandAtChannel(cmd)
+	go s.receiveChannelData()
 }
 
 func (s *Stream) Stop() {
@@ -50,14 +50,9 @@ func (s *Stream) Download() {
 	if s.isStarted {
 		return
 	}
-	outpuFile := fmt.Sprintf("%v.mp4", s.Name)
-	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outpuFile)
-	s.startFfmpegCmd(cmd)
-}
-
-func (s *Stream) startFfmpegCmd(cmd *exec.Cmd) {
-	go s.startCommandAtChannel(cmd)
-	go s.receiveChannelData()
+	outputFile := fmt.Sprintf("%v.mp4", s.Name)
+	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile)
+	go s.execCommandAtChannel(cmd)
 }
 
 func (s *Stream) getStreamAddress() string {
@@ -109,10 +104,11 @@ func (s *Stream) killStream() {
 		)
 	}
 	s.isStarted = false
+
 }
 
-func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
-	zap.L().Info("start command",
+func (s *Stream) execCommandAtChannel(cmd *exec.Cmd) {
+	zap.L().Info("exec command",
 		zap.String("stream", s.Name),
 		zap.String("cmd", cmd.String()),
 	)
@@ -120,7 +116,7 @@ func (s *Stream) startCommandAtChannel(cmd *exec.Cmd) {
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	if err != nil {
-		zap.L().Fatal("failed start command:",
+		zap.L().Fatal("failed exec command:",
 			zap.String("stream", s.Name),
 			zap.String("cmd", cmd.String()),
 			zap.String("error", err.Error()),

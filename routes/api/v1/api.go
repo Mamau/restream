@@ -31,21 +31,20 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
-func streamDownload(w http.ResponseWriter, r *http.Request) {
-	var strm = stream.NewStream()
-	if !validator.Validate(w, r, contraints.StreamStart{Stream: strm}) {
+func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
+	var strm = stream.NewScheduledStream()
+	if !validator.Validate(w, r, contraints.ScheduleStart{Stream: strm}) {
 		return
 	}
-	if err := Live.SetStream(strm); err != nil {
-		zap.L().Error("cant start stream",
+	if err := Live.ScheduleStream(strm); err != nil {
+		zap.L().Error("cant schedule stream",
 			zap.String("stream", strm.Name),
 			zap.String("error", err.Error()),
 		)
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	strm.Download()
-	response.JsonStruct(w, "Stream downloading...", http.StatusOK)
+	response.JsonStruct(w, "Stream schedule...", http.StatusOK)
 }
 
 func streamStop(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +84,7 @@ func NewRouter() http.Handler {
 
 	r.Post("/stream-start", streamStart)
 	r.Post("/stream-stop", streamStop)
-	r.Post("/stream-download", streamDownload)
+	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
 
 	return r
