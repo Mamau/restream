@@ -11,11 +11,11 @@ type ScheduleStart struct {
 	Stream *stream.ScheduledStream
 }
 
-func (s ScheduleStart) Validate(r *http.Request) url.Values {
+func (s *ScheduleStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
 		"startAt":  []string{"required"},
 		"stopAt":   []string{"required"},
-		"filename": []string{"required"},
+		"filename": []string{"required", "file_manifest_available"},
 		"name":     []string{"required"},
 	}
 

@@ -16,7 +16,7 @@ func init() {
 	govalidator.AddCustomRule("file_manifest_available", isFileManifestAvailable)
 }
 
-func (s StreamStart) Validate(r *http.Request) url.Values {
+func (s *StreamStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
 		"filename": []string{"required", "file_manifest_available"},
 		"name":     []string{"required"},

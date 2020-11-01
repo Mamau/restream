@@ -5,11 +5,27 @@ import (
 	"fmt"
 	"github.com/mamau/restream/helpers"
 	"net/http"
+	"sync"
 )
+
+var once sync.Once
 
 type Live struct {
 	Streams          map[string]*Stream
 	ScheduledStreams map[string]*ScheduledStream
+}
+
+var instance *Live
+
+func GetLive() *Live {
+	once.Do(func() {
+		instance = &Live{
+			Streams:          make(map[string]*Stream),
+			ScheduledStreams: make(map[string]*ScheduledStream),
+		}
+	})
+
+	return instance
 }
 
 func (l *Live) ScheduleStream(s *ScheduledStream) error {
@@ -18,20 +34,34 @@ func (l *Live) ScheduleStream(s *ScheduledStream) error {
 		return errors.New(fmt.Sprintf("Stream %v already scheduled at %v\n", s.Name, s.StartAt))
 	}
 
-	l.ScheduledStreams[s.Name] = s
-	s.ScheduleDownload()
-	return nil
-}
+	//t := time.Now()
+	//start := s.StartAt - t.Unix()
+	//stop := s.StopAt - t.Unix()
+	//format := "15_04_05_02_01_2006"
+	//
+	//killStreamWithDelay := stop + 10
+	//startAt := time.Unix(s.StartAt, 10).Format(format)
+	//stopAt := time.Unix(s.StopAt, 10).Format(format)
+	//
+	//zap.L().Info("stream scheduled download",
+	//	zap.String("start", startAt),
+	//	zap.String("stop", stopAt),
+	//)
+	//
+	//s.Name = fmt.Sprintf("%v-%v-%v", startAt, stopAt, s.Name)
+	//s.streamDuration = time.Duration(stop) * time.Second
 
-func NewLive() *Live {
-	return &Live{
-		Streams:          make(map[string]*Stream),
-		ScheduledStreams: make(map[string]*ScheduledStream),
-	}
+	l.ScheduledStreams[s.Name] = s
+	//s.ScheduleDownload(start, killStreamWithDelay)
+	return nil
 }
 
 func (l *Live) AllStreams() map[string]*Stream {
 	return l.Streams
+}
+
+func (l *Live) AllScheduledStreams() map[string]*ScheduledStream {
+	return l.ScheduledStreams
 }
 
 func (l *Live) SetStream(s *Stream) error {

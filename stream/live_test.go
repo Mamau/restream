@@ -6,7 +6,7 @@ import (
 
 func TestSetStream(t *testing.T) {
 	streamName := "someStream"
-	live := NewLive()
+	live := GetLive()
 	strm := NewStream()
 	strm.Name = streamName
 
@@ -23,7 +23,7 @@ func TestGetStream(t *testing.T) {
 	streamName := "someStream"
 	strm := NewStream()
 	strm.Name = streamName
-	live := NewLive()
+	live := GetLive()
 
 	err := live.SetStream(strm)
 	if err != nil {
@@ -48,7 +48,7 @@ func TestAllStreams(t *testing.T) {
 	test2.Name = "test2"
 	mapStrm["test2"] = test2
 
-	live := NewLive()
+	live := GetLive()
 	for key, val := range live.AllStreams() {
 		value, ok := mapStrm[key]
 		if !ok {
@@ -62,7 +62,7 @@ func TestAllStreams(t *testing.T) {
 
 func TestDeleteStream(t *testing.T) {
 	streamName := "someStream"
-	live := NewLive()
+	live := GetLive()
 	strm := NewStream()
 	strm.Name = streamName
 

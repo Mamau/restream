@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 )
 
@@ -18,8 +19,7 @@ type Stream struct {
 	quality            string
 	channelCommand     chan *exec.Cmd
 	stopChannelCommand chan bool
-
-	streamDuration time.Duration
+	streamDuration     time.Duration
 }
 
 func NewStream() *Stream {
@@ -27,7 +27,7 @@ func NewStream() *Stream {
 		quality:            "p:1",
 		channelCommand:     make(chan *exec.Cmd),
 		stopChannelCommand: make(chan bool),
-		streamDuration:     60 * time.Second,
+		streamDuration:     2 * time.Hour,
 	}
 }
 
@@ -46,12 +46,15 @@ func (s *Stream) Stop() {
 	}
 }
 
-func (s *Stream) Download(stopAt string) {
+func (s *Stream) Download() {
 	if s.isStarted {
 		return
 	}
+
+	seconds := strconv.FormatFloat(s.streamDuration.Seconds(), 'f', 0, 64)
+
 	outputFile := fmt.Sprintf("%v.mp4", s.Name)
-	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-t", stopAt, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile)
+	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-t", seconds, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile)
 	go s.execCommandAtChannel(cmd)
 }
 
@@ -86,7 +89,14 @@ func (s *Stream) killStream() {
 		zap.String("stream", s.Name),
 		zap.Int("PID", command.Process.Pid),
 	)
-	err := command.Process.Kill()
+	_, err := GetLive().DeleteStream(s.Name)
+	if err != nil {
+		zap.L().Fatal("cant delete stream",
+			zap.String("stream", s.Name),
+			zap.String("error", err.Error()),
+		)
+	}
+	err = command.Process.Kill()
 	if err != nil {
 		zap.L().Fatal("cant kill process",
 			zap.String("stream", s.Name),
@@ -104,7 +114,6 @@ func (s *Stream) killStream() {
 		)
 	}
 	s.isStarted = false
-
 }
 
 func (s *Stream) execCommandAtChannel(cmd *exec.Cmd) {

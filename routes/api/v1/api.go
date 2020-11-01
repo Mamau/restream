@@ -11,14 +11,12 @@ import (
 	"net/http"
 )
 
-var Live = stream.NewLive()
-
 func streamStart(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
-	if !validator.Validate(w, r, contraints.StreamStart{Stream: strm}) {
+	if !validator.Validate(w, r, &contraints.StreamStart{Stream: strm}) {
 		return
 	}
-	if err := Live.SetStream(strm); err != nil {
+	if err := stream.GetLive().SetStream(strm); err != nil {
 		zap.L().Error("cant start stream",
 			zap.String("stream", strm.Name),
 			zap.String("error", err.Error()),
@@ -33,17 +31,10 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 
 func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewScheduledStream()
-	if !validator.Validate(w, r, contraints.ScheduleStart{Stream: strm}) {
+	if !validator.Validate(w, r, &contraints.ScheduleStart{Stream: strm}) {
 		return
 	}
-	if err := Live.ScheduleStream(strm); err != nil {
-		zap.L().Error("cant schedule stream",
-			zap.String("stream", strm.Name),
-			zap.String("error", err.Error()),
-		)
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	strm.ScheduleDownload()
 	response.JsonStruct(w, "Stream schedule...", http.StatusOK)
 }
 
@@ -63,7 +54,7 @@ func streamStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	strm, err := Live.DeleteStream(ds.Name)
+	strm, err := stream.GetLive().DeleteStream(ds.Name)
 	if err != nil {
 		zap.L().Error("error stopping stream",
 			zap.String("error", err.Error()),
@@ -76,7 +67,11 @@ func streamStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func streams(w http.ResponseWriter, r *http.Request) {
-	response.JsonStruct(w, Live.AllStreams(), http.StatusOK)
+	response.JsonStruct(w, stream.GetLive().AllStreams(), http.StatusOK)
+}
+
+func scheduledStreams(w http.ResponseWriter, r *http.Request) {
+	response.JsonStruct(w, stream.GetLive().AllScheduledStreams(), http.StatusOK)
 }
 
 func NewRouter() http.Handler {
@@ -86,6 +81,7 @@ func NewRouter() http.Handler {
 	r.Post("/stream-stop", streamStop)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
+	r.Get("/scheduled-streams", scheduledStreams)
 
 	return r
 }
