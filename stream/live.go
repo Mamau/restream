@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mamau/restream/helpers"
+	"go.uber.org/zap"
 	"net/http"
 	"sync"
 )
@@ -11,8 +12,7 @@ import (
 var once sync.Once
 
 type Live struct {
-	Streams          map[string]*Stream
-	ScheduledStreams map[string]*ScheduledStream
+	Streams map[string]Streamer
 }
 
 var instance *Live
@@ -20,59 +20,55 @@ var instance *Live
 func GetLive() *Live {
 	once.Do(func() {
 		instance = &Live{
-			Streams:          make(map[string]*Stream),
-			ScheduledStreams: make(map[string]*ScheduledStream),
+			Streams: make(map[string]Streamer),
 		}
 	})
 
 	return instance
 }
 
-func (l *Live) ScheduleStream(s *ScheduledStream) error {
-	_, ok := l.ScheduledStreams[s.Name]
+func (l *Live) ScheduleStream(s Streamer) error {
+	_, ok := l.Streams[s.GetName()]
 	if ok {
-		return errors.New(fmt.Sprintf("Stream %v already scheduled at %v\n", s.Name, s.StartAt))
+		return errors.New(fmt.Sprintf("Stream %v already scheduled\n", s.GetName()))
 	}
+	zap.L().Info("stream scheduled", zap.String("stream", s.GetName()))
 
-	//t := time.Now()
-	//start := s.StartAt - t.Unix()
-	//stop := s.StopAt - t.Unix()
-	//format := "15_04_05_02_01_2006"
-	//
-	//killStreamWithDelay := stop + 10
-	//startAt := time.Unix(s.StartAt, 10).Format(format)
-	//stopAt := time.Unix(s.StopAt, 10).Format(format)
-	//
-	//zap.L().Info("stream scheduled download",
-	//	zap.String("start", startAt),
-	//	zap.String("stop", stopAt),
-	//)
-	//
-	//s.Name = fmt.Sprintf("%v-%v-%v", startAt, stopAt, s.Name)
-	//s.streamDuration = time.Duration(stop) * time.Second
-
-	l.ScheduledStreams[s.Name] = s
-	//s.ScheduleDownload(start, killStreamWithDelay)
+	l.Streams[s.GetName()] = s
 	return nil
 }
 
-func (l *Live) AllStreams() map[string]*Stream {
+func (l *Live) GetScheduledStream(name string) (Streamer, error) {
+	strm, ok := l.Streams[name]
+	if !ok {
+		return &ScheduledStream{}, errors.New(fmt.Sprintf("Not found stream by name: %v", name))
+	}
+	return strm, nil
+}
+
+func (l *Live) DeleteScheduledStream(name string) (Streamer, error) {
+	strm, err := l.GetScheduledStream(name)
+	if err == nil {
+		delete(l.Streams, name)
+		zap.L().Info("stream deleted", zap.String("stream", strm.GetName()))
+		return strm, nil
+	}
+	return &ScheduledStream{}, errors.New(fmt.Sprintf("Stream with name %v not found", name))
+}
+
+func (l *Live) AllStreams() map[string]Streamer {
 	return l.Streams
 }
 
-func (l *Live) AllScheduledStreams() map[string]*ScheduledStream {
-	return l.ScheduledStreams
-}
-
-func (l *Live) SetStream(s *Stream) error {
-	if _, err := l.GetStream(s.Name); err != nil {
-		l.Streams[s.Name] = s
+func (l *Live) SetStream(s Streamer) error {
+	if _, err := l.GetStream(s.GetName()); err != nil {
+		l.Streams[s.GetName()] = s
 		return nil
 	}
-	return errors.New(fmt.Sprintf("Stream with name %v already exists", s.Name))
+	return errors.New(fmt.Sprintf("Stream with name %v already exists", s.GetName()))
 }
 
-func (l *Live) GetStream(name string) (*Stream, error) {
+func (l *Live) GetStream(name string) (Streamer, error) {
 	strm, ok := l.Streams[name]
 	if !ok {
 		return &Stream{}, errors.New(fmt.Sprintf("Not found stream by name: %v", name))
@@ -80,7 +76,7 @@ func (l *Live) GetStream(name string) (*Stream, error) {
 	return strm, nil
 }
 
-func (l *Live) DeleteStream(name string) (*Stream, error) {
+func (l *Live) DeleteStream(name string) (Streamer, error) {
 	strm, err := l.GetStream(name)
 	if err == nil {
 		delete(l.Streams, name)
@@ -89,7 +85,7 @@ func (l *Live) DeleteStream(name string) (*Stream, error) {
 	return &Stream{}, errors.New(fmt.Sprintf("Stream with name %v not found", name))
 }
 
-func (l *Live) GetStreamByRequest(r *http.Request) (*Stream, error) {
+func (l *Live) GetStreamByRequest(r *http.Request) (Streamer, error) {
 	type dataStream struct {
 		Name string
 	}

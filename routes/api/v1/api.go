@@ -70,10 +70,6 @@ func streams(w http.ResponseWriter, r *http.Request) {
 	response.JsonStruct(w, stream.GetLive().AllStreams(), http.StatusOK)
 }
 
-func scheduledStreams(w http.ResponseWriter, r *http.Request) {
-	response.JsonStruct(w, stream.GetLive().AllScheduledStreams(), http.StatusOK)
-}
-
 func NewRouter() http.Handler {
 	r := chi.NewRouter()
 
@@ -81,7 +77,6 @@ func NewRouter() http.Handler {
 	r.Post("/stream-stop", streamStop)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
-	r.Get("/scheduled-streams", scheduledStreams)
 
 	return r
 }

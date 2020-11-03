@@ -7,7 +7,7 @@ import (
 
 func InitLogger() {
 	cf := zap.NewDevelopmentConfig()
-	cf.OutputPaths = []string{"stdout", "/var/log/stream.log"}
+	cf.OutputPaths = []string{"stdout", "/tmp/stream.log"}
 	cf.Encoding = "json"
 	cf.EncoderConfig = zapcore.EncoderConfig{
 		TimeKey:     "time",
