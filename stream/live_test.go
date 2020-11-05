@@ -34,7 +34,7 @@ func TestGetStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	if currentStream.Name != streamName {
+	if currentStream.GetName() != streamName {
 		t.Errorf("stream %v doesn`t exist", streamName)
 	}
 }
@@ -54,8 +54,8 @@ func TestAllStreams(t *testing.T) {
 		if !ok {
 			t.Errorf("Key %v not found", key)
 		}
-		if value.Name != val.Name {
-			t.Errorf("Value %v at key %v is not same. %v != %v", val.Name, key, value.Name, val.Name)
+		if value.Name != val.GetName() {
+			t.Errorf("Value %v at key %v is not same. %v != %v", val.GetName(), key, value.Name, val.GetName())
 		}
 	}
 }
@@ -74,7 +74,7 @@ func TestDeleteStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	if deletedStream.Name != streamName {
+	if deletedStream.GetName() != streamName {
 		t.Fatalf("Deleted stream %v not same", streamName)
 	}
 

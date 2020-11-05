@@ -3,6 +3,7 @@ package stream
 import (
 	"fmt"
 	"go.uber.org/zap"
+	"os"
 	"time"
 )
 
@@ -30,20 +31,30 @@ func (s *ScheduledStream) scheduleCmd() {
 	t := time.Now()
 	startAfter := s.StartAt - t.Unix()
 	stopAfter := s.StopAt - t.Unix()
-	format := "15-04-05_02-01-2006"
+	format := "15:04:05_02.01.2006"
+	pwd, err := os.Getwd()
+	if err != nil {
+		zap.L().Fatal("cant get current directory")
+	}
 
 	killStreamWithDelay := stopAfter + 60
 	startAt := time.Unix(s.StartAt, 10).Format(format)
 	stopAt := time.Unix(s.StopAt, 10).Format(format)
+	folder := fmt.Sprintf("%v/%v-%v", pwd, startAt, stopAt)
+
+	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		zap.L().Fatal("cant create folder",
+			zap.String("folder", folder),
+			zap.String("error", err.Error()),
+		)
+	}
+	s.Name = fmt.Sprintf("%v/%v", folder, s.Name)
+	s.streamDuration = time.Duration(stopAfter) * time.Second
 
 	zap.L().Info("stream scheduled download",
-		zap.String("startAfter", startAt),
-		zap.String("stopAfter", stopAt),
+		zap.String("startAfter", time.Unix(s.StartAt, 10).Format(format)),
+		zap.String("stopAfter", time.Unix(s.StopAt, 10).Format(format)),
 	)
-
-	s.Name = fmt.Sprintf("%v-%v-%v", startAt, stopAt, s.Name)
-
-	s.streamDuration = time.Duration(stopAfter) * time.Second
 
 	if err := GetLive().ScheduleStream(s); err != nil {
 		zap.L().Fatal("cant schedule stream",

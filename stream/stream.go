@@ -108,11 +108,20 @@ func (s *Stream) killStream() {
 
 	err = command.Process.Signal(syscall.SIGTERM)
 	if err != nil {
-		zap.L().Fatal("cant stop process",
+		zap.L().Error("cant stop process",
 			zap.String("stream", s.Name),
 			zap.Int("PID", command.Process.Pid),
 			zap.String("error", err.Error()),
 		)
+		zap.L().Info("Lets kill it")
+		err = command.Process.Kill()
+		if err != nil {
+			zap.L().Fatal("cant kill process",
+				zap.String("stream", s.Name),
+				zap.Int("PID", command.Process.Pid),
+				zap.String("error", err.Error()),
+			)
+		}
 	}
 
 	_, errWait := command.Process.Wait()
@@ -124,15 +133,6 @@ func (s *Stream) killStream() {
 		)
 	}
 	s.isStarted = false
-
-	err = command.Process.Kill()
-	if err != nil {
-		zap.L().Fatal("cant kill process",
-			zap.String("stream", s.Name),
-			zap.Int("PID", command.Process.Pid),
-			zap.String("error", err.Error()),
-		)
-	}
 }
 
 func (s *Stream) execCommandAtChannel(cmd *exec.Cmd) {
