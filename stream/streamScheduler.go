@@ -38,9 +38,7 @@ func (s *ScheduledStream) scheduleCmd() {
 	}
 
 	killStreamWithDelay := stopAfter + 60
-	startAt := time.Unix(s.StartAt, 10).Format(format)
-	stopAt := time.Unix(s.StopAt, 10).Format(format)
-	folder := fmt.Sprintf("%v/%v-%v", pwd, startAt, stopAt)
+	folder := fmt.Sprintf("%v/%v-%v", pwd, s.StartAt, s.StopAt)
 
 	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
 		zap.L().Fatal("cant create folder",

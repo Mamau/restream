@@ -17,6 +17,10 @@ func TestSetStream(t *testing.T) {
 	if strm.Name != streamName {
 		t.Errorf("Stream doesnt have stream with name %v\n", strm.Name)
 	}
+	_, err := live.DeleteStream(strm.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestGetStream(t *testing.T) {
@@ -36,6 +40,10 @@ func TestGetStream(t *testing.T) {
 	}
 	if currentStream.GetName() != streamName {
 		t.Errorf("stream %v doesn`t exist", streamName)
+	}
+	_, err = live.DeleteStream(strm.Name)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
