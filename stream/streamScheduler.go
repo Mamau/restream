@@ -54,7 +54,7 @@ func (s *ScheduledStream) scheduleCmd() {
 		zap.String("stopAfter", time.Unix(s.StopAt, 10).Format(format)),
 	)
 
-	if err := GetLive().ScheduleStream(s); err != nil {
+	if err := GetLive().SetStream(s); err != nil {
 		zap.L().Fatal("cant schedule stream",
 			zap.String("stream", s.Name),
 			zap.String("error", err.Error()),

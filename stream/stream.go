@@ -98,7 +98,7 @@ func (s *Stream) killStream() {
 		zap.String("stream", s.Name),
 		zap.Int("PID", command.Process.Pid),
 	)
-	_, err := GetLive().DeleteScheduledStream(s.Name)
+	_, err := GetLive().DeleteStream(s.Name)
 	if err != nil {
 		zap.L().Fatal("cant delete stream",
 			zap.String("stream", s.Name),
@@ -113,7 +113,7 @@ func (s *Stream) killStream() {
 			zap.Int("PID", command.Process.Pid),
 			zap.String("error", err.Error()),
 		)
-		zap.L().Info("Lets kill it")
+		zap.L().Info("lets kill it")
 		err = command.Process.Kill()
 		if err != nil {
 			zap.L().Fatal("cant kill process",

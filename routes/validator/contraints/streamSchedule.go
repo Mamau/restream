@@ -13,9 +13,10 @@ type ScheduleStart struct {
 
 func (s *ScheduleStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
-		"startAt":  []string{"required"},
-		"stopAt":   []string{"required"},
-		"filename": []string{"required", "file_manifest_available"},
+		"startAt": []string{"required", "numeric"},
+		"stopAt":  []string{"required", "numeric"},
+		//"filename": []string{"required", "file_manifest_available"},
+		"filename": []string{"required"},
 		"name":     []string{"required"},
 	}
 
@@ -27,5 +28,14 @@ func (s *ScheduleStart) Validate(r *http.Request) url.Values {
 
 	v := govalidator.New(opts)
 	errBag := v.ValidateJSON()
+	return additionalCheckRules(s.Stream, errBag)
+}
+
+func additionalCheckRules(s *stream.ScheduledStream, errBag url.Values) url.Values {
+	if s.StopAt <= s.StartAt {
+		errBag.Add("startAt", "must be less than stop at")
+		errBag.Add("stopAt", "must be greater than start at")
+	}
+
 	return errBag
 }

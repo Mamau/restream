@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mamau/restream/helpers"
-	"go.uber.org/zap"
 	"net/http"
 	"sync"
 )
@@ -25,35 +24,6 @@ func GetLive() *Live {
 	})
 
 	return instance
-}
-
-func (l *Live) ScheduleStream(s Streamer) error {
-	_, ok := l.Streams[s.GetName()]
-	if ok {
-		return errors.New(fmt.Sprintf("Stream %v already scheduled\n", s.GetName()))
-	}
-	zap.L().Info("stream scheduled", zap.String("stream", s.GetName()))
-
-	l.Streams[s.GetName()] = s
-	return nil
-}
-
-func (l *Live) GetScheduledStream(name string) (Streamer, error) {
-	strm, ok := l.Streams[name]
-	if !ok {
-		return &ScheduledStream{}, errors.New(fmt.Sprintf("Not found stream by name: %v", name))
-	}
-	return strm, nil
-}
-
-func (l *Live) DeleteScheduledStream(name string) (Streamer, error) {
-	strm, err := l.GetScheduledStream(name)
-	if err == nil {
-		delete(l.Streams, name)
-		zap.L().Info("stream deleted", zap.String("stream", strm.GetName()))
-		return strm, nil
-	}
-	return &ScheduledStream{}, errors.New(fmt.Sprintf("Stream with name %v not found", name))
 }
 
 func (l *Live) AllStreams() map[string]Streamer {
