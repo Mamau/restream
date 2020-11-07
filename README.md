@@ -22,3 +22,6 @@ go run restream
 ```bash
 curl -d '{"stream":"myStream", "filename":"https://matchtv.ru/vdl/playlist/133529/adaptive/1603646236/003b4d95f7db681249f9b6252da9ecdc/web.m3u8"}' -H "Content-Type: application/json" -X POST http://localhost:89/api/v1/stream-start
 ```
+#### Обязательно требуется ffmpeg
+#### Используется образ alfg/docker-nginx-rtmp 
+Для стриминга используется это https://github.com/alfg/docker-nginx-rtmp
