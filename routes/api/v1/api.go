@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/routes/response"
@@ -35,7 +36,7 @@ func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	strm.ScheduleDownload()
-	response.JsonStruct(w, "Stream schedule...", http.StatusOK)
+	response.JsonStruct(w, fmt.Sprintf("Stream %v scheduled...", strm.Name), http.StatusOK)
 }
 
 func streamStop(w http.ResponseWriter, r *http.Request) {
@@ -44,8 +45,7 @@ func streamStop(w http.ResponseWriter, r *http.Request) {
 	}
 	var ds dataStream
 
-	err := helpers.JsonRequestToMap(r, &ds)
-	if err != nil {
+	if err := helpers.JsonRequestToMap(r, &ds); err != nil {
 		zap.L().Error("error while parse request",
 			zap.String("stream", ds.Name),
 			zap.String("error", err.Error()),

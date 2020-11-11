@@ -2,9 +2,9 @@ package stream
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"go.uber.org/zap"
-	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -17,25 +17,30 @@ type Streamer interface {
 	Start()
 	Stop()
 	Download()
+	SetContext(d time.Duration)
 }
 
 type Stream struct {
-	isStarted          bool
-	FileName           string `json:"filename"`
-	Name               string `json:"name"`
-	quality            string
-	channelCommand     chan *exec.Cmd
-	stopChannelCommand chan bool
-	streamDuration     time.Duration
+	isStarted bool
+	FileName  string `json:"filename"`
+	Name      string `json:"name"`
+	quality   string
+	command   *exec.Cmd
+	ctx       context.Context
 }
 
 func NewStream() *Stream {
-	return &Stream{
-		quality:            "p:1",
-		channelCommand:     make(chan *exec.Cmd),
-		stopChannelCommand: make(chan bool),
-		streamDuration:     2 * time.Hour,
+	s := Stream{
+		quality: "p:1",
 	}
+	s.SetContext(1 * time.Hour)
+	return &s
+}
+
+func (s *Stream) SetContext(d time.Duration) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(d))
+	defer cancel()
+	s.ctx = ctx
 }
 
 func (s *Stream) GetName() string {
@@ -46,14 +51,12 @@ func (s *Stream) Start() {
 	if s.isStarted {
 		return
 	}
-	cmd := exec.Command("ffmpeg", "-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress())
-	go s.execCommandAtChannel(cmd)
-	go s.receiveChannelData()
+	go s.setCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
 }
 
 func (s *Stream) Stop() {
 	if s.isStarted {
-		s.stopChannelCommand <- true
+		s.stopCommand()
 	}
 }
 
@@ -63,8 +66,44 @@ func (s *Stream) Download() {
 	}
 
 	outputFile := fmt.Sprintf("%v.mp4", s.Name)
-	cmd := exec.Command("ffmpeg", "-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile)
-	go s.execCommandAtChannel(cmd)
+	go s.setCommand([]string{"-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile})
+}
+
+func (s *Stream) setCommand(c []string) {
+	s.command = exec.CommandContext(s.ctx, "ffmpeg", c...)
+	err := s.command.Start()
+	if err != nil {
+		zap.L().Error("cant start download stream",
+			zap.String("stream", s.Name),
+			zap.String("error", err.Error()),
+		)
+		s.stopCommand()
+	}
+	s.isStarted = true
+
+	select {
+	case <-s.ctx.Done():
+		s.stopCommand()
+		return
+	}
+}
+
+func (s *Stream) stopCommand() {
+	zap.L().Info("stopping command...", zap.String("stream", s.Name), zap.String("cmd", s.command.String()))
+	if _, err := GetLive().DeleteStream(s.Name); err != nil {
+		zap.L().Error("cant delete stream",
+			zap.String("stream", s.Name),
+			zap.String("error", err.Error()),
+		)
+	}
+
+	if err := s.command.Process.Signal(syscall.SIGTERM); err != nil {
+		zap.L().Error("cant stop process",
+			zap.String("stream", s.Name),
+			zap.Int("PID", s.command.Process.Pid),
+			zap.String("error", err.Error()),
+		)
+	}
 }
 
 func (s *Stream) getStreamAddress() string {
@@ -72,84 +111,4 @@ func (s *Stream) getStreamAddress() string {
 	address.WriteString(RTMP_ADDRESS)
 	address.WriteString(s.Name)
 	return address.String()
-}
-
-func (s *Stream) receiveChannelData() {
-	for {
-		select {
-		case isStopChannel := <-s.stopChannelCommand:
-			if isStopChannel {
-				s.killStream()
-				return
-			}
-		case <-time.After(s.streamDuration):
-			zap.L().Info("kill after time",
-				zap.Int("duration", int(s.streamDuration)),
-			)
-			s.killStream()
-			return
-		}
-	}
-}
-
-func (s *Stream) killStream() {
-	command := <-s.channelCommand
-	zap.L().Info("kill stream",
-		zap.String("stream", s.Name),
-		zap.Int("PID", command.Process.Pid),
-	)
-	_, err := GetLive().DeleteStream(s.Name)
-	if err != nil {
-		zap.L().Fatal("cant delete stream",
-			zap.String("stream", s.Name),
-			zap.String("error", err.Error()),
-		)
-	}
-
-	err = command.Process.Signal(syscall.SIGTERM)
-	if err != nil {
-		zap.L().Error("cant stop process",
-			zap.String("stream", s.Name),
-			zap.Int("PID", command.Process.Pid),
-			zap.String("error", err.Error()),
-		)
-		zap.L().Info("lets kill it")
-		err = command.Process.Kill()
-		if err != nil {
-			zap.L().Fatal("cant kill process",
-				zap.String("stream", s.Name),
-				zap.Int("PID", command.Process.Pid),
-				zap.String("error", err.Error()),
-			)
-		}
-	}
-
-	_, errWait := command.Process.Wait()
-	if errWait != nil {
-		zap.L().Fatal("cant wait process",
-			zap.String("stream", s.Name),
-			zap.Int("PID", command.Process.Pid),
-			zap.String("error", errWait.Error()),
-		)
-	}
-	s.isStarted = false
-}
-
-func (s *Stream) execCommandAtChannel(cmd *exec.Cmd) {
-	zap.L().Info("exec command",
-		zap.String("stream", s.Name),
-		zap.String("cmd", cmd.String()),
-	)
-
-	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	if err != nil {
-		zap.L().Fatal("failed exec command:",
-			zap.String("stream", s.Name),
-			zap.String("cmd", cmd.String()),
-			zap.String("error", err.Error()),
-		)
-	}
-	s.isStarted = true
-	s.channelCommand <- cmd
 }
