@@ -41,6 +41,12 @@ func (s *Stream) SetContext(d time.Duration) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(d))
 	defer cancel()
 	s.ctx = ctx
+
+	select {
+	case <-s.ctx.Done():
+		s.stopCommand()
+		return
+	}
 }
 
 func (s *Stream) GetName() string {
@@ -80,12 +86,6 @@ func (s *Stream) setCommand(c []string) {
 		s.stopCommand()
 	}
 	s.isStarted = true
-
-	select {
-	case <-s.ctx.Done():
-		s.stopCommand()
-		return
-	}
 }
 
 func (s *Stream) stopCommand() {
