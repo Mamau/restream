@@ -39,8 +39,7 @@ func Start() {
 	}
 
 	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
+		if err := srv.ListenAndServe(); err != nil {
 			zap.L().Fatal("cant listen",
 				zap.String("duration", err.Error()),
 			)

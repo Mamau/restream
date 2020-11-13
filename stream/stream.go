@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -24,9 +25,11 @@ type Stream struct {
 	isStarted bool
 	FileName  string `json:"filename"`
 	Name      string `json:"name"`
+	logPath   *os.File
 	quality   string
 	command   *exec.Cmd
 	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 func NewStream() *Stream {
@@ -38,15 +41,7 @@ func NewStream() *Stream {
 }
 
 func (s *Stream) SetContext(d time.Duration) {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(d))
-	defer cancel()
-	s.ctx = ctx
-
-	select {
-	case <-s.ctx.Done():
-		s.stopCommand()
-		return
-	}
+	s.ctx, s.cancel = context.WithDeadline(context.Background(), time.Now().Add(d))
 }
 
 func (s *Stream) GetName() string {
@@ -57,7 +52,7 @@ func (s *Stream) Start() {
 	if s.isStarted {
 		return
 	}
-	go s.setCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
+	go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
 }
 
 func (s *Stream) Stop() {
@@ -72,20 +67,35 @@ func (s *Stream) Download() {
 	}
 
 	outputFile := fmt.Sprintf("%v.mp4", s.Name)
-	go s.setCommand([]string{"-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile})
+	go s.runCommand([]string{"-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile})
 }
 
-func (s *Stream) setCommand(c []string) {
-	s.command = exec.CommandContext(s.ctx, "ffmpeg", c...)
-	err := s.command.Start()
-	if err != nil {
+func (s *Stream) runCommand(c []string) {
+	defer s.cancel()
+	s.command = exec.Command("ffmpeg", c...)
+	if s.logPath != nil {
+		s.command.Stdout = s.logPath
+		s.command.Stderr = s.logPath
+		defer func() {
+			if err := s.logPath.Close(); err != nil {
+				panic(err)
+			}
+		}()
+	}
+	if err := s.command.Start(); err != nil {
 		zap.L().Error("cant start download stream",
 			zap.String("stream", s.Name),
 			zap.String("error", err.Error()),
 		)
 		s.stopCommand()
+		return
 	}
 	s.isStarted = true
+
+	select {
+	case <-s.ctx.Done():
+		s.stopCommand()
+	}
 }
 
 func (s *Stream) stopCommand() {
@@ -95,6 +105,7 @@ func (s *Stream) stopCommand() {
 			zap.String("stream", s.Name),
 			zap.String("error", err.Error()),
 		)
+		return
 	}
 
 	if err := s.command.Process.Signal(syscall.SIGTERM); err != nil {
@@ -103,7 +114,9 @@ func (s *Stream) stopCommand() {
 			zap.Int("PID", s.command.Process.Pid),
 			zap.String("error", err.Error()),
 		)
+		return
 	}
+	zap.L().Info("command stopped", zap.String("stream", s.Name))
 }
 
 func (s *Stream) getStreamAddress() string {
