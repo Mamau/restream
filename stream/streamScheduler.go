@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"os"
@@ -21,9 +22,9 @@ func NewScheduledStream() *ScheduledStream {
 	}
 }
 
-func (s *ScheduledStream) ScheduleDownload() {
+func (s *ScheduledStream) ScheduleDownload() error {
 	if s.isStarted {
-		return
+		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
 	}
 
 	t := time.Now()
@@ -33,7 +34,7 @@ func (s *ScheduledStream) ScheduleDownload() {
 	pwd, err := os.Getwd()
 	if err != nil {
 		zap.L().Error("cant get current directory")
-		return
+		return errors.New("cant get current directory")
 	}
 
 	s.SetContext(time.Duration(stopAfter) * time.Second)
@@ -43,7 +44,7 @@ func (s *ScheduledStream) ScheduleDownload() {
 			zap.String("folder", folder),
 			zap.String("error", err.Error()),
 		)
-		return
+		return err
 	}
 
 	s.logPath, err = os.Create(fmt.Sprintf("%v/log.txt", folder))
@@ -58,7 +59,7 @@ func (s *ScheduledStream) ScheduleDownload() {
 			zap.String("stream", s.Name),
 			zap.String("error", err.Error()),
 		)
-		return
+		return err
 	}
 
 	zap.L().Info("stream scheduled download",
@@ -66,4 +67,5 @@ func (s *ScheduledStream) ScheduleDownload() {
 		zap.String("stopAfter", time.Unix(s.StopAt, 10).Format(format)),
 	)
 	time.AfterFunc(time.Duration(startAfter)*time.Second, s.Download)
+	return nil
 }

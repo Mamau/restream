@@ -17,16 +17,11 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 	if !validator.Validate(w, r, &contraints.StreamStart{Stream: strm}) {
 		return
 	}
-	if err := stream.GetLive().SetStream(strm); err != nil {
-		zap.L().Error("cant start stream",
-			zap.String("stream", strm.Name),
-			zap.String("error", err.Error()),
-		)
+
+	if err := strm.Start(); err != nil {
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	strm.Start()
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
@@ -35,7 +30,10 @@ func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
 	if !validator.Validate(w, r, &contraints.ScheduleStart{Stream: strm}) {
 		return
 	}
-	strm.ScheduleDownload()
+	if err := strm.ScheduleDownload(); err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	response.JsonStruct(w, fmt.Sprintf("Stream %v scheduled...", strm.Name), http.StatusOK)
 }
 

@@ -3,6 +3,7 @@ package stream
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"os"
@@ -15,7 +16,7 @@ const RTMP_ADDRESS = "rtmp://0.0.0.0:1935/stream/"
 
 type Streamer interface {
 	GetName() string
-	Start()
+	Start() error
 	Stop()
 	Download()
 	SetContext(d time.Duration)
@@ -48,11 +49,15 @@ func (s *Stream) GetName() string {
 	return s.Name
 }
 
-func (s *Stream) Start() {
+func (s *Stream) Start() error {
 	if s.isStarted {
-		return
+		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
+	}
+	if err := GetLive().SetStream(s); err != nil {
+		return err
 	}
 	go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
+	return nil
 }
 
 func (s *Stream) Stop() {
