@@ -35,7 +35,7 @@ type Stream struct {
 
 func NewStream() *Stream {
 	s := Stream{
-		quality: "p:1",
+		quality: "p:1?",
 	}
 	s.SetContext(1 * time.Hour)
 	return &s
@@ -72,7 +72,7 @@ func (s *Stream) Download() {
 	}
 
 	outputFile := fmt.Sprintf("%v.mp4", s.Name)
-	go s.runCommand([]string{"-i", s.FileName, "-map", s.quality, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile})
+	go s.runCommand([]string{"-i", s.FileName, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile})
 }
 
 func (s *Stream) runCommand(c []string) {
@@ -104,7 +104,11 @@ func (s *Stream) runCommand(c []string) {
 }
 
 func (s *Stream) stopCommand() {
-	zap.L().Info("stopping command...", zap.String("stream", s.Name), zap.String("cmd", s.command.String()))
+	zap.L().Info("stopping command...",
+		zap.Int("PID", s.command.Process.Pid),
+		zap.String("stream", s.Name),
+		zap.String("cmd", s.command.String()),
+	)
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
 		zap.L().Error("cant delete stream",
 			zap.String("stream", s.Name),
@@ -113,14 +117,31 @@ func (s *Stream) stopCommand() {
 		return
 	}
 
-	if err := s.command.Process.Signal(syscall.SIGTERM); err != nil {
+	if err := s.command.Process.Signal(syscall.SIGINT); err != nil {
 		zap.L().Error("cant stop process",
 			zap.String("stream", s.Name),
 			zap.Int("PID", s.command.Process.Pid),
 			zap.String("error", err.Error()),
 		)
+		zap.L().Info("lets kill it")
+		if err := s.command.Process.Kill(); err != nil {
+			zap.L().Fatal("cant kill process",
+				zap.String("stream", s.Name),
+				zap.Int("PID", s.command.Process.Pid),
+				zap.String("error", err.Error()),
+			)
+		}
 		return
 	}
+
+	if _, err := s.command.Process.Wait(); err != nil {
+		zap.L().Fatal("cant wait process",
+			zap.String("stream", s.Name),
+			zap.Int("PID", s.command.Process.Pid),
+			zap.String("error", err.Error()),
+		)
+	}
+
 	zap.L().Info("command stopped", zap.String("stream", s.Name))
 }
 

@@ -31,14 +31,18 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	startAfter := s.StartAt - t.Unix()
 	stopAfter := s.StopAt - t.Unix()
 	format := "15:04:05_02.01.2006"
+	formatFolder := "15_04_05"
+
 	pwd, err := os.Getwd()
 	if err != nil {
 		zap.L().Error("cant get current directory")
 		return errors.New("cant get current directory")
 	}
+	st := time.Unix(s.StartAt, 10).Format(formatFolder)
+	sp := time.Unix(s.StopAt, 10).Format(formatFolder)
 
 	s.SetContext(time.Duration(stopAfter) * time.Second)
-	folder := fmt.Sprintf("%v/%v-%v", pwd, s.StartAt, s.StopAt)
+	folder := fmt.Sprintf("%v/%v_%v-%v", pwd, s.Name, st, sp)
 	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
 		zap.L().Error("cant create folder",
 			zap.String("folder", folder),
@@ -66,6 +70,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 		zap.String("startAfter", time.Unix(s.StartAt, 10).Format(format)),
 		zap.String("stopAfter", time.Unix(s.StopAt, 10).Format(format)),
 	)
+
 	time.AfterFunc(time.Duration(startAfter)*time.Second, s.Download)
 	return nil
 }
