@@ -30,10 +30,11 @@ func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
 	if !validator.Validate(w, r, &contraints.ScheduleStart{Stream: strm}) {
 		return
 	}
-	if err := strm.ScheduleDownload(); err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	strm.DL()
+	//if err := strm.ScheduleDownload(); err != nil {
+	//	response.Json(w, err.Error(), http.StatusBadRequest)
+	//	return
+	//}
 	response.JsonStruct(w, fmt.Sprintf("Stream %v scheduled...", strm.Name), http.StatusOK)
 }
 

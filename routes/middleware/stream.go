@@ -16,8 +16,7 @@ func IsNginxRestreamRunning(next http.Handler) http.Handler {
 			return
 		}
 
-		isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
-		if !isOk {
+		if isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices; !isOk {
 			message := fmt.Sprintf("Nginx restream %v is not available %v\n", addr, resp.StatusCode)
 			http.Error(w, message, http.StatusBadRequest)
 			return
