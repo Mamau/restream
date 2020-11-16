@@ -11,10 +11,18 @@ import (
 	"time"
 )
 
+type chunk struct {
+	Order int
+	Value []byte
+}
+
+var chunksChannel = make(chan chunk)
+var prevChunks = make([]string, 0, 30)
+
 func main() {
 	//storage.InitLogger()
 	//server.Start()
-	var playList = "https://matchtv.ru/vdl/playlist/133529/adaptive/1605486224/bd73e46a3ad27f0f12af1051a498f66c/web.m3u8"
+	var playList = "https://matchtv.ru/vdl/playlist/133529/adaptive/1605575479/a341547fb5bd5ac41d90ed79d004ee90/web.m3u8"
 	//var chunks []string
 	basePath, chunkListName := getChunkInfoFromPlayList(playList)
 	ch := make(chan []string)
@@ -36,15 +44,11 @@ func main() {
 		}
 	}()
 
-	//chunks = append(chunks, getChunkList(basePath, chunkListName)...)
 	f, err := os.Create("./somefile.ts")
 	if err != nil {
 		log.Fatal("Download error: ", err)
 	}
 	defer f.Close()
-
-	//prevChunks := make(map[string]string)
-	//actualChunks := make(map[string]string)
 
 	for {
 		select {
@@ -54,44 +58,50 @@ func main() {
 				f.Close()
 				return
 			}
-			//for k, v := range chunks {
-			//	if _, ok := prevChunks[k]; ok {
-			//		continue
-			//	}
-			//	prevChunks[k] = v
-			//	actualChunks[k] = v
-			//}
-			fmt.Println("----WRITE----")
 			downloadAndWrite(basePath, chunks, f)
-			//actualChunks = make(map[string]string)
 		}
 	}
 }
 
-var prevChunks = make([]string, 0, 30)
-
 func downloadAndWrite(basePath string, chunks []string, f *os.File) {
-	for _, v := range chunks {
+	chLen := 0
+	fullLen := len(chunks)
+	for i, v := range chunks {
 		if _, ok := Find(prevChunks, v); ok {
-			fmt.Printf("%v <-----EXISTS\n", v)
 			continue
 		}
-		fmt.Println(v)
-		part, err := downloadFilePart(fmt.Sprintf("%v/%v", basePath, v))
-		if err != nil {
-			log.Fatal("download part error: ", err)
-		}
+		chLen++
+		log.Printf("%v index it", i)
+		go downloadFilePart(fmt.Sprintf("%v/%v", basePath, v), i)
 
-		if _, err = f.Write(part); err != nil {
-			log.Fatal("write part to output file: ", err)
-		}
 		if len(prevChunks) == 30 {
 			fmt.Println("flush slice!")
 			prevChunks = append(prevChunks[len(prevChunks)-20:], v)
 		} else {
 			prevChunks = append(prevChunks, v)
 		}
-		fmt.Println(prevChunks)
+	}
+
+	chunkList := make([][]byte, fullLen, fullLen)
+	received := 0
+
+	for {
+		select {
+		case chunkData := <-chunksChannel:
+			received++
+			chunkList[chunkData.Order] = chunkData.Value
+			if received == chLen {
+				for _, v := range chunkList {
+					if len(v) == 0 {
+						continue
+					}
+					if _, err := f.Write(v); err != nil {
+						log.Fatal("write part to output file: ", err)
+					}
+				}
+				return
+			}
+		}
 	}
 }
 
@@ -163,29 +173,21 @@ func getChunkList(basePath string, chunkListName string) []string {
 	return chunks
 }
 
-func downloadFilePart(url string) ([]byte, error) {
-	result := make([]byte, 0)
+func downloadFilePart(url string, order int) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return result, err
+		log.Fatalf("cant get cunk %v, cause %v", url, err)
 	}
-	defer resp.Body.Close()
-
-	if result, err = ioutil.ReadAll(resp.Body); err != nil {
-		return result, err
-	}
-
-	return result, err
-}
-
-func unique(intSlice []string) []string {
-	keys := make(map[string]bool)
-	var list []string
-	for _, entry := range intSlice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Fatalf("cant close body %v", err)
 		}
+	}()
+
+	result, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("cant parse cunk %v, cause %v", url, err)
 	}
-	return list
+
+	chunksChannel <- chunk{Order: order, Value: result}
 }
