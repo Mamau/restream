@@ -18,8 +18,14 @@ type Streamer interface {
 	GetName() string
 	Start() error
 	Stop()
-	Download()
-	SetContext(d time.Duration)
+	Download(Downloader)
+	SetContext(time.Duration)
+}
+
+type Downloader interface {
+	Start()
+	Stop()
+	SetDeadline(stopAt int64)
 }
 
 type Stream struct {
@@ -66,13 +72,19 @@ func (s *Stream) Stop() {
 	}
 }
 
-func (s *Stream) Download() {
+func (s *Stream) Download(d Downloader) {
 	if s.isStarted {
 		return
 	}
-
-	outputFile := fmt.Sprintf("%v.mp4", s.Name)
-	go s.runCommand([]string{"-i", s.FileName, "-c", "copy", "-bsf:a", "aac_adtstoasc", outputFile})
+	s.isStarted = true
+	d.Start()
+	if _, err := GetLive().DeleteStream(s.Name); err != nil {
+		zap.L().Error("cant delete stream",
+			zap.String("stream", s.Name),
+			zap.String("error", err.Error()),
+		)
+		return
+	}
 }
 
 func (s *Stream) runCommand(c []string) {

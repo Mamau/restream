@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/mamau/restream/helpers"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -23,18 +24,20 @@ type M3u8 struct {
 	basePath      string
 	chunkListName string
 	name          string
+	folder        string
 	chunksChan    chan Chunk
 	prevChunks    []string
 	file          *os.File
 	chunkListChan chan []string
-	deadline      int
+	deadline      time.Duration
+	stopped       bool
 }
 
-func NewM3u8(n, p string) *M3u8 {
+func NewM3u8(outputName, folder, playlist string) *M3u8 {
 	m := &M3u8{
-		deadline:      65,
-		name:          n,
-		playlist:      p,
+		name:          outputName,
+		folder:        folder,
+		playlist:      playlist,
 		chunksChan:    make(chan Chunk),
 		prevChunks:    make([]string, 0, 30),
 		chunkListChan: make(chan []string),
@@ -50,8 +53,32 @@ func (m *M3u8) Start() {
 	m.execJob()
 }
 
+func (m *M3u8) Stop() {
+	m.stopped = true
+	close(m.chunkListChan)
+}
+
+func (m *M3u8) SetDeadline(stopAt int64) {
+	m.deadline = time.Duration(stopAt-time.Now().Unix()) * time.Second
+	m.deadlineJob()
+}
+
+func (m *M3u8) deadlineJob() {
+	if m.deadline == 0 {
+		return
+	}
+	time.AfterFunc(m.deadline, m.Stop)
+}
+
 func (m *M3u8) setFile() {
-	file, err := os.OpenFile(fmt.Sprintf("./%v.ts", m.name), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
+	if err := os.MkdirAll(m.folder, os.ModePerm); err != nil {
+		zap.L().Error("cant create folder",
+			zap.String("folder", m.folder),
+			zap.String("error", err.Error()),
+		)
+	}
+
+	file, err := os.OpenFile(fmt.Sprintf("%v/%v.ts", m.folder, m.name), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		log.Fatal("create file error: ", err)
 	}
@@ -70,7 +97,7 @@ func (m *M3u8) execJob() {
 		case chunks, ok := <-m.chunkListChan:
 			if !ok {
 				m.closeFile()
-				fmt.Printf("stop execJob %v\n", m.name)
+				fmt.Printf("stop exec job %v\n", m.name)
 				return
 			}
 			m.downloadChunks(chunks)
@@ -78,17 +105,14 @@ func (m *M3u8) execJob() {
 	}
 }
 
-func (m *M3u8) deadlineJob() {
-	time.AfterFunc(time.Duration(m.deadline)*time.Second, func() {
-		close(m.chunkListChan)
-	})
-}
-
 func (m *M3u8) receiveChunksList() {
 	m.chunkListChan <- m.fetchChunkList()
 	for {
 		select {
 		case <-time.Tick(10 * time.Second):
+			if m.stopped {
+				return
+			}
 			m.chunkListChan <- m.fetchChunkList()
 		}
 	}
@@ -145,6 +169,7 @@ func (m *M3u8) writeChunks(fullLen, chunkLen int) {
 }
 
 func (m *M3u8) fetchChunkInfoFromPlayList() {
+	//todo: сделать проверку, если файл сразу с чанками то разбирать его
 	var chunkLists []string
 
 	fmt.Println("fetch manifest info...")
