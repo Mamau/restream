@@ -169,8 +169,8 @@ func (m *M3u8) writeChunks(fullLen, chunkLen int) {
 }
 
 func (m *M3u8) fetchChunkInfoFromPlayList() {
-	//todo: сделать проверку, если файл сразу с чанками то разбирать его
 	var chunkLists []string
+	chunkListFile := m.playlist
 
 	fmt.Println("fetch manifest info...")
 	resp, err := http.Get(m.playlist)
@@ -194,11 +194,10 @@ func (m *M3u8) fetchChunkInfoFromPlayList() {
 			chunkLists = append(chunkLists, line)
 		}
 	}
-	if chunkLists == nil {
-		log.Fatal("Chunk list not found")
+	if chunkLists != nil {
+		chunkListFile = chunkLists[len(chunkLists)-1]
 	}
 
-	chunkListFile := chunkLists[len(chunkLists)-1]
 	splitPath := strings.Split(chunkListFile, "/")
 	m.basePath = strings.Join(splitPath[:len(splitPath)-1], "/")
 	m.chunkListName = splitPath[len(splitPath)-1]

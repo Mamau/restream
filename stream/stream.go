@@ -62,7 +62,8 @@ func (s *Stream) Start() error {
 	if err := GetLive().SetStream(s); err != nil {
 		return err
 	}
-	go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
+	//go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
+	go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
 	return nil
 }
 
@@ -90,15 +91,17 @@ func (s *Stream) Download(d Downloader) {
 func (s *Stream) runCommand(c []string) {
 	defer s.cancel()
 	s.command = exec.Command("ffmpeg", c...)
-	if s.logPath != nil {
-		s.command.Stdout = s.logPath
-		s.command.Stderr = s.logPath
-		defer func() {
-			if err := s.logPath.Close(); err != nil {
-				panic(err)
-			}
-		}()
-	}
+	//if s.logPath != nil {
+	//	s.command.Stdout = s.logPath
+	//	s.command.Stderr = s.logPath
+	//	defer func() {
+	//		if err := s.logPath.Close(); err != nil {
+	//			panic(err)
+	//		}
+	//	}()
+	//}
+	s.command.Stdout = os.Stdout
+	s.command.Stderr = os.Stderr
 	if err := s.command.Start(); err != nil {
 		zap.L().Error("cant start download stream",
 			zap.String("stream", s.Name),
