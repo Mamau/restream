@@ -63,7 +63,7 @@ func (s *Stream) Start() error {
 		return err
 	}
 	//go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
-	go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
+	go s.runCommand([]string{"-re", "-i", s.FileName, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
 	return nil
 }
 
