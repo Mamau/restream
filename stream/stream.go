@@ -2,14 +2,12 @@ package stream
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"os"
 	"os/exec"
 	"syscall"
-	"time"
 )
 
 const RTMP_ADDRESS = "rtmp://0.0.0.0:1935/stream/"
@@ -19,7 +17,6 @@ type Streamer interface {
 	Start() error
 	Stop()
 	Download(Downloader)
-	SetContext(time.Duration)
 }
 
 type Downloader interface {
@@ -33,22 +30,11 @@ type Stream struct {
 	FileName  string `json:"filename"`
 	Name      string `json:"name"`
 	logPath   *os.File
-	quality   string
 	command   *exec.Cmd
-	ctx       context.Context
-	cancel    context.CancelFunc
 }
 
 func NewStream() *Stream {
-	s := Stream{
-		quality: "p:1?",
-	}
-	s.SetContext(1 * time.Hour)
-	return &s
-}
-
-func (s *Stream) SetContext(d time.Duration) {
-	s.ctx, s.cancel = context.WithDeadline(context.Background(), time.Now().Add(d))
+	return &Stream{}
 }
 
 func (s *Stream) GetName() string {
@@ -62,7 +48,7 @@ func (s *Stream) Start() error {
 	if err := GetLive().SetStream(s); err != nil {
 		return err
 	}
-	//go s.runCommand([]string{"-loglevel", "verbose", "-re", "-i", s.FileName, "-vcodec", "libx264", "-vprofile", "baseline", "-acodec", "libmp3lame", "-ar", "44100", "-ac", "1", "-f", "flv", s.getStreamAddress()})
+
 	go s.runCommand([]string{"-re", "-i", s.FileName, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
 	return nil
 }
@@ -89,17 +75,7 @@ func (s *Stream) Download(d Downloader) {
 }
 
 func (s *Stream) runCommand(c []string) {
-	defer s.cancel()
 	s.command = exec.Command("ffmpeg", c...)
-	//if s.logPath != nil {
-	//	s.command.Stdout = s.logPath
-	//	s.command.Stderr = s.logPath
-	//	defer func() {
-	//		if err := s.logPath.Close(); err != nil {
-	//			panic(err)
-	//		}
-	//	}()
-	//}
 	s.command.Stdout = os.Stdout
 	s.command.Stderr = os.Stderr
 	if err := s.command.Start(); err != nil {
@@ -111,11 +87,6 @@ func (s *Stream) runCommand(c []string) {
 		return
 	}
 	s.isStarted = true
-
-	select {
-	case <-s.ctx.Done():
-		s.stopCommand()
-	}
 }
 
 func (s *Stream) stopCommand() {
