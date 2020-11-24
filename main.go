@@ -12,36 +12,39 @@ import (
 	"time"
 )
 
-var file, _ = os.OpenFile(fmt.Sprintf("%v.mp4", "plssss"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
+var file, _ = os.OpenFile(fmt.Sprintf("%v.mp4", "1tv"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
 
-//var file2, _ = os.OpenFile(fmt.Sprintf("%v.mp4", "plssss_audio"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
+var file2, _ = os.OpenFile(fmt.Sprintf("%v.mp4", "1tv_audio"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
 
 func main() {
 	//storage.InitLogger()
 	//server.Start()
 	for {
 		select {
-		case <-time.Tick(2 * time.Second):
+		case <-time.Tick(1 * time.Second):
 			fmt.Println("Tick")
 			DL()
 		}
 	}
+
 	file.Close()
-	//file2.Close()
+	file2.Close()
 }
 
-var basebase = "https://cdn10.1internet.tv/dash-live11/streams/1tv/"
+var basebase = "https://edge4.1internet.tv/dash-live11/streams/1tv/"
+var base = "https://edge4.1internet.tv/"
+var playList = "https://edge4.1internet.tv/dash-live11/streams/1tv/1tvdash.mpd?e=1606240600"
 var initialization = ""
 
 var initialization_audio = ""
 var first = true
+var first_audio = true
 var receivedChunks []string
+var receivedChunksAudio []string
+var receivedChunksApp []string
 
 func DL() {
 	//ffmpeg -i https://s40403.cdn.ngenix.net/dash-live11/streams/1tv/1tvdash.mpd?e=1605982080 -codec copy outtttt.mp4
-	base := "https://cdn10.1internet.tv/"
-	playList := "https://cdn10.1internet.tv/dash-live11/streams/1tv/1tvdash.mpd?e=1606161014"
-
 	resp, err := http.Get(playList)
 	if err != nil {
 		log.Fatal("get manifest file error: ", err)
@@ -52,10 +55,6 @@ func DL() {
 	//	line := scanner.Text()
 	//	fmt.Println(line)
 	//}
-
-	mdp(base, resp)
-}
-func mdp(base string, resp *http.Response) {
 	defer resp.Body.Close()
 	mpd := new(mpd.MPD)
 	sliceOf, err := ioutil.ReadAll(resp.Body)
@@ -63,8 +62,16 @@ func mdp(base string, resp *http.Response) {
 		log.Fatal(err)
 	}
 	mpd.Decode(sliceOf)
+
+	go mdp(mpd)
+	go mdp_audio(mpd)
+	// merge audio and video
+	// ffmpeg -i 1tv.mp4 -i 1tv_audio.mp4 final.mp4
+}
+
+func mdp_audio(mpd *mpd.MPD) {
+
 	startTime := mpd.AvailabilityStartTime
-	chunk := ""
 	chunk_audio := ""
 
 	test, err := time.Parse("2006-01-02T15:04:05", startTime.String())
@@ -76,7 +83,83 @@ func mdp(base string, resp *http.Response) {
 
 	for _, period := range mpd.Period {
 		for _, adaptation := range period.AdaptationSets {
+			if adaptation.MimeType == "audio/mp4" {
+				if chunk_audio != "" {
+					continue
+				}
+				if initialization_audio == "" {
+					initialization_audio = *adaptation.SegmentTemplate.Initialization
+				}
+				med_audio := *adaptation.SegmentTemplate.Media
+				duration_audio := *adaptation.SegmentTemplate.Duration
+				startNumber_audio := *adaptation.SegmentTemplate.StartNumber
+				timescale_audio := *adaptation.SegmentTemplate.Timescale
 
+				res_audio := strings.Split(med_audio, "/")
+				chunk_audio = strings.Join(res_audio[3:], "/")
+				chunk_audio = formula(duration_audio, timescale_audio, startNumber_audio, diffTime, chunk_audio)
+
+				if _, ok := helpers.Find(receivedChunksAudio, chunk_audio); ok {
+					fmt.Printf("Chunk already leaded%v\n", chunk_audio)
+					return
+				}
+
+				receivedChunksAudio = append(receivedChunksAudio, chunk_audio)
+			}
+		}
+	}
+
+	if first_audio {
+		urlIni_audio := basebase + initialization_audio
+		fmt.Println(urlIni_audio, "<--------------INI AUDIO")
+		writeToFile(urlIni_audio, file2)
+
+		first_audio = false
+	}
+
+	// AUDIO
+	url_audio := base + chunk_audio
+	fmt.Println(url_audio, "<--------------AUDIO")
+	writeToFile(url_audio, file2)
+}
+
+func mdp(mpd *mpd.MPD) {
+	startTime := mpd.AvailabilityStartTime
+	chunk := ""
+
+	test, err := time.Parse("2006-01-02T15:04:05", startTime.String())
+	if err != nil {
+		panic(err)
+	}
+	now := time.Now()
+	diffTime := now.Unix() - test.Unix()
+
+	for _, period := range mpd.Period {
+		for _, adaptation := range period.AdaptationSets {
+
+			//if adaptation.MimeType == "application/mp4" {
+			//	if chunk != "" {
+			//		continue
+			//	}
+			//	if initialization == "" {
+			//		initialization = *adaptation.SegmentTemplate.Initialization
+			//	}
+			//	med := *adaptation.SegmentTemplate.Media
+			//	duration := *adaptation.SegmentTemplate.Duration
+			//	startNumber := *adaptation.SegmentTemplate.StartNumber
+			//	timescale := *adaptation.SegmentTemplate.Timescale
+			//
+			//	res := strings.Split(med, "/")
+			//	chunk = strings.Join(res[3:], "/")
+			//
+			//	chunk = formula(duration, timescale, startNumber, diffTime, chunk)
+			//	if _, ok := helpers.Find(receivedChunks, chunk); ok {
+			//		fmt.Printf("Chunk already leaded%v\n", chunk)
+			//		return
+			//	}
+			//
+			//	receivedChunks = append(receivedChunks, chunk)
+			//}
 			if adaptation.MimeType == "video/mp4" {
 				for _, repres := range adaptation.Representations {
 					if chunk != "" {
@@ -102,68 +185,29 @@ func mdp(base string, resp *http.Response) {
 					receivedChunks = append(receivedChunks, chunk)
 				}
 			}
-			if adaptation.MimeType == "audio/mp4" {
-				if initialization_audio == "" {
-					initialization_audio = *adaptation.SegmentTemplate.Initialization
-				}
-				med_audio := *adaptation.SegmentTemplate.Media
-				duration_audio := *adaptation.SegmentTemplate.Duration
-				startNumber_audio := *adaptation.SegmentTemplate.StartNumber
-				timescale_audio := *adaptation.SegmentTemplate.Timescale
-
-				res_audio := strings.Split(med_audio, "/")
-				chunk_audio = strings.Join(res_audio[3:], "/")
-				chunk_audio = formula(duration_audio, timescale_audio, startNumber_audio, diffTime, chunk_audio)
-			}
 		}
 	}
 
 	if first {
-		urlIni_audio := basebase + initialization_audio
-		fmt.Println(urlIni_audio, "<--------------INI AUDIO")
-		resp2, _ := http.Get(urlIni_audio)
-		result2, _ := ioutil.ReadAll(resp2.Body)
-		//fmt.Println(result2)
-		file.Write(result2)
-		resp2.Body.Close()
-
 		urlIni := basebase + initialization
 		fmt.Println(urlIni, "<--------------INI VIDEO")
-		resp1, _ := http.Get(urlIni)
-		result, _ := ioutil.ReadAll(resp1.Body)
-		//fmt.Println(result)
-		file.Write(result)
-		resp1.Body.Close()
+		writeToFile(urlIni, file)
 
 		first = false
 	}
 
-	// AUDIO
-	url_audio := base + chunk_audio
-	fmt.Println(url_audio, "<--------------AUDIO")
-	resp3, err3 := http.Get(url_audio)
-	if err3 != nil {
-		log.Fatalf("cant get url %v", err)
-	}
-
-	result3, _ := ioutil.ReadAll(resp3.Body)
-	//fmt.Println(result3)
-	file.Write(result3)
-	resp3.Body.Close()
-
 	// VIDEO
 	url := base + chunk
 	fmt.Println(url, "<--------------VIDEO")
-	resp2, err := http.Get(url)
-	if err != nil {
-		log.Fatalf("cant get url %v", err)
-	}
+	writeToFile(url, file)
+}
 
-	result2, _ := ioutil.ReadAll(resp2.Body)
+func writeToFile(url string, f *os.File) {
+	resp, _ := http.Get(url)
+	result, _ := ioutil.ReadAll(resp.Body)
 	//fmt.Println(result2)
-	file.Write(result2)
-	resp2.Body.Close()
-
+	f.Write(result)
+	resp.Body.Close()
 }
 
 func formula(duration, timescale, startNumber uint64, diffTime int64, med string) string {
