@@ -59,6 +59,9 @@ func (m *M3u8) Stop() {
 }
 
 func (m *M3u8) SetDeadline(stopAt int64) {
+	if stopAt <= time.Now().Unix() {
+		log.Fatal("deadline should be greater than now")
+	}
 	m.deadline = time.Duration(stopAt-time.Now().Unix()) * time.Second
 	m.deadlineJob()
 }
