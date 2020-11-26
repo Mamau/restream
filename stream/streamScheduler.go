@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
+	"log"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -49,14 +52,23 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	}
 
 	folder := fmt.Sprintf("%v/%v_%v-%v", pwd, s.Name, st, sp)
-	hls := NewM3u8(s.Name, folder, s.FileName)
-	hls.SetDeadline(s.StopAt)
+	var downloader Downloader
+	if strings.Contains(s.FileName, ".mpd") {
+		url4eg, err := url.Parse(s.FileName)
+		if err != nil {
+			log.Fatalf("err creating url %v\n", err)
+		}
+		downloader = NewMpegDash(s.Name, folder, url4eg)
+	} else {
+		downloader = NewM3u8(s.Name, folder, s.FileName)
+	}
+	downloader.SetDeadline(s.StopAt)
 
 	zap.L().Info("stream scheduled download",
 		zap.String("startAfter", time.Unix(s.StartAt, 10).Format(format)),
 		zap.String("stopAfter", time.Unix(s.StopAt, 10).Format(format)),
 	)
 
-	time.AfterFunc(time.Duration(startAfter)*time.Second, func() { s.Download(hls) })
+	time.AfterFunc(time.Duration(startAfter)*time.Second, func() { s.Download(downloader) })
 	return nil
 }

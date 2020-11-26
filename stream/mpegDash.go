@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -19,6 +20,8 @@ type MpegDash struct {
 	folder      string
 	initAudio   bool
 	initVideo   bool
+	processStop chan bool
+	stopped     bool
 	chunksAudio []string
 	chunksVideo []string
 	manifestUrl *url.URL
@@ -32,21 +35,32 @@ func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
 		name:        name,
 		manifestUrl: manifestUrl,
 		folder:      folder,
+		processStop: make(chan bool),
 	}
-	m.setFiles()
 	m.deadlineJob()
 	return m
 }
 
 func (m *MpegDash) Start() {
+	m.setFiles()
 	for {
 		select {
+		case <-m.processStop:
+			return
 		case <-time.Tick(1 * time.Second):
-			m.fetchManifest()
+			if !m.stopped {
+				m.fetchManifest()
+			}
 		}
 	}
 }
-func (m *MpegDash) Stop() {}
+func (m *MpegDash) Stop() {
+	fmt.Println("stop mpeg dash")
+	m.stopped = true
+	m.closeFiles()
+	time.AfterFunc(5*time.Second, m.mergeAudioVideo)
+	m.processStop <- true
+}
 func (m *MpegDash) SetDeadline(stopAt int64) {
 	if stopAt <= time.Now().Unix() {
 		log.Fatal("deadline should be greater than now")
@@ -59,6 +73,17 @@ func (m *MpegDash) deadlineJob() {
 		return
 	}
 	time.AfterFunc(m.deadline, m.Stop)
+}
+func (m *MpegDash) mergeAudioVideo() {
+	resultedFileName := fmt.Sprintf("%v/%v.mp4", m.folder, m.name)
+	command := exec.Command("ffmpeg", "-i", m.fileVideo.Name(), "-i", m.fileAudio.Name(), "-c", "copy", resultedFileName)
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Start(); err != nil {
+		zap.L().Error("cant merge files",
+			zap.String("error", err.Error()),
+		)
+	}
 }
 func (m *MpegDash) setFiles() {
 	if err := os.MkdirAll(m.folder, os.ModePerm); err != nil {
@@ -138,7 +163,7 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 						continue
 					}
 					if !m.initVideo {
-						iniUrl := m.getBaseUrl() + *repres.SegmentTemplate.Initialization
+						iniUrl := m.getRelativePath() + *repres.SegmentTemplate.Initialization
 						fmt.Println(iniUrl, "<--------------INI VIDEO")
 						m.fetchAndWriteToFile(iniUrl, m.fileVideo)
 						m.initVideo = true
@@ -154,10 +179,9 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 
 					videoMedia = m.formula(duration, timescale, startNumber, diffTime, videoMedia)
 					if _, ok := helpers.Find(m.chunksVideo, videoMedia); ok {
-						fmt.Printf("chunk already leaded%v\n", videoMedia)
 						return
 					}
-					m.chunksAudio = append(m.chunksVideo, videoMedia)
+					m.chunksVideo = m.collectorChunks(m.chunksVideo, videoMedia)
 				}
 			}
 		}
@@ -182,7 +206,7 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 					continue
 				}
 				if !m.initAudio {
-					iniUrl := m.getBaseUrl() + *adaptation.SegmentTemplate.Initialization
+					iniUrl := m.getRelativePath() + *adaptation.SegmentTemplate.Initialization
 					fmt.Println(iniUrl, "<--------------INI AUDIO")
 					m.fetchAndWriteToFile(iniUrl, m.fileAudio)
 					m.initAudio = true
@@ -198,10 +222,9 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 				audioMedia = m.formula(duration, timeScale, startNumber, diffTime, audioMedia)
 
 				if _, ok := helpers.Find(m.chunksAudio, audioMedia); ok {
-					fmt.Printf("chunk already leaded%v\n", audioMedia)
 					return
 				}
-				m.chunksAudio = append(m.chunksAudio, audioMedia)
+				m.chunksAudio = m.collectorChunks(m.chunksAudio, audioMedia)
 			}
 		}
 	}
@@ -234,4 +257,15 @@ func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int
 	num := fmt.Sprintf(media, formula)
 	res := strings.ReplaceAll(num, "$", "")
 	return strings.ReplaceAll(res, "Number", "")
+}
+func (m *MpegDash) collectorChunks(store []string, value string) []string {
+	maxStoredPrevChunks := 10
+	slicePrevChunks := 5
+
+	if len(store) == maxStoredPrevChunks {
+		store = append(store[len(store)-slicePrevChunks:], value)
+	} else {
+		store = append(store, value)
+	}
+	return store
 }
