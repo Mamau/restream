@@ -3,10 +3,9 @@ package stream
 import (
 	"fmt"
 	"github.com/mamau/restream/helpers"
+	"github.com/mamau/restream/storage"
 	"github.com/unki2aut/go-mpd"
-	"go.uber.org/zap"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -28,6 +27,7 @@ type MpegDash struct {
 	deadline    time.Duration
 	fileAudio   *os.File
 	fileVideo   *os.File
+	logger      *storage.StreamLogger
 }
 
 func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
@@ -36,6 +36,7 @@ func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
 		manifestUrl: manifestUrl,
 		folder:      folder,
 		processStop: make(chan bool),
+		logger:      storage.NewStreamLogger(folder, name),
 	}
 	m.deadlineJob()
 	return m
@@ -55,15 +56,15 @@ func (m *MpegDash) Start() {
 	}
 }
 func (m *MpegDash) Stop() {
-	fmt.Println("stop mpeg dash")
+	m.logger.InfoLogger.Println("stop mpeg dash")
 	m.stopped = true
 	m.closeFiles()
-	time.AfterFunc(5*time.Second, m.mergeAudioVideo)
+	//time.AfterFunc(10*time.Second, m.mergeAudioVideo)
 	m.processStop <- true
 }
 func (m *MpegDash) SetDeadline(stopAt int64) {
 	if stopAt <= time.Now().Unix() {
-		log.Fatal("deadline should be greater than now")
+		m.logger.FatalLogger.Fatalf("deadline should be greater than now")
 	}
 	m.deadline = time.Duration(stopAt-time.Now().Unix()) * time.Second
 	m.deadlineJob()
@@ -75,42 +76,38 @@ func (m *MpegDash) deadlineJob() {
 	time.AfterFunc(m.deadline, m.Stop)
 }
 func (m *MpegDash) mergeAudioVideo() {
+	m.logger.InfoLogger.Printf("start merge video %v and audio %v\n", m.fileVideo.Name(), m.fileAudio.Name())
 	resultedFileName := fmt.Sprintf("%v/%v.mp4", m.folder, m.name)
 	command := exec.Command("ffmpeg", "-i", m.fileVideo.Name(), "-i", m.fileAudio.Name(), "-c", "copy", resultedFileName)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
+	command.Stdout = m.logger.InfoLogger.Writer()
+	command.Stderr = m.logger.WarningLogger.Writer()
 	if err := command.Start(); err != nil {
-		zap.L().Error("cant merge files",
-			zap.String("error", err.Error()),
-		)
+		m.logger.ErrorLogger.Printf("cant merge files, error %v\n", err)
 	}
 }
 func (m *MpegDash) setFiles() {
 	if err := os.MkdirAll(m.folder, os.ModePerm); err != nil {
-		zap.L().Error("cant create folder",
-			zap.String("folder", m.folder),
-			zap.String("error", err.Error()),
-		)
+		m.logger.ErrorLogger.Printf("cant create folder, folder %v, error %v\n", m.folder, err)
 	}
 
 	fileAudio, err := os.OpenFile(fmt.Sprintf("%v/%v_audio.mp4", m.folder, m.name), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
-		log.Fatal("create audio file error: ", err)
+		m.logger.FatalLogger.Fatalf("create audio file error: %v\n", err)
 	}
 	m.fileAudio = fileAudio
 
 	fileVideo, err := os.OpenFile(fmt.Sprintf("%v/%v_video.mp4", m.folder, m.name), os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
-		log.Fatal("create video file error: ", err)
+		m.logger.FatalLogger.Fatalf("create video file error: %v\n", err)
 	}
 	m.fileVideo = fileVideo
 }
 func (m *MpegDash) closeFiles() {
 	if err := m.fileAudio.Close(); err != nil {
-		log.Fatalf("cant close audio file, cause: %v", err)
+		m.logger.FatalLogger.Fatalf("cant close audio file, cause: %v", err)
 	}
 	if err := m.fileVideo.Close(); err != nil {
-		log.Fatalf("cant close video file, cause: %v", err)
+		m.logger.FatalLogger.Fatalf("cant close video file, cause: %v", err)
 	}
 }
 func (m *MpegDash) getBaseUrl() string {
@@ -122,26 +119,26 @@ func (m *MpegDash) getRelativePath() string {
 	return fmt.Sprintf("%v%v/", strings.TrimRight(m.getBaseUrl(), "/"), cutedPath)
 }
 func (m *MpegDash) fetchManifest() {
-	fmt.Println("----------fetch manifest----------")
+	m.logger.InfoLogger.Println("----------fetch manifest----------")
 	response, err := http.Get(m.manifestUrl.String())
 	if err != nil {
-		log.Fatal("fetch manifest file error: ", err)
+		m.logger.FatalLogger.Fatalf("fetch manifest file error: %v\n", err)
 	}
 	defer func() {
 		err := response.Body.Close()
 		if err != nil {
-			log.Fatalf("error while closing manifest response: %v\n", err)
+			m.logger.FatalLogger.Fatalf("error while closing manifest response: %v\n", err)
 		}
 	}()
 
 	manifest := new(mpd.MPD)
 	sliceOf, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Fatal(err)
+		m.logger.FatalLogger.Fatalf("cant read body %v\n", err)
 	}
 	err = manifest.Decode(sliceOf)
 	if err != nil {
-		log.Fatalf("error while decoding manifest file: %v\n", err)
+		m.logger.FatalLogger.Fatalf("error while decoding manifest file: %v\n", err)
 	}
 	go m.fetchAudio(manifest)
 	go m.fetchVideo(manifest)
@@ -150,7 +147,7 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 	videoMedia := ""
 	startTime, err := time.Parse("2006-01-02T15:04:05", mpd.AvailabilityStartTime.String())
 	if err != nil {
-		log.Fatalf("error while parsing start time from manifest: %v\n", err)
+		m.logger.FatalLogger.Fatalf("error while parsing start time from manifest: %v\n", err)
 	}
 	now := time.Now()
 	diffTime := now.Unix() - startTime.Unix()
@@ -164,7 +161,7 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 					}
 					if !m.initVideo {
 						iniUrl := m.getRelativePath() + *repres.SegmentTemplate.Initialization
-						fmt.Println(iniUrl, "<--------------INI VIDEO")
+						m.logger.InfoLogger.Printf("%v<--------------INI VIDEO\n", iniUrl)
 						m.fetchAndWriteToFile(iniUrl, m.fileVideo)
 						m.initVideo = true
 					}
@@ -187,14 +184,14 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 		}
 	}
 	urlVideo := m.getBaseUrl() + videoMedia
-	fmt.Println(urlVideo, "<--------------WRITE VIDEO")
+	m.logger.InfoLogger.Printf("%v<--------------WRITE VIDEO\n", urlVideo)
 	m.fetchAndWriteToFile(urlVideo, m.fileVideo)
 }
 func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 	audioMedia := ""
 	startTime, err := time.Parse("2006-01-02T15:04:05", mpd.AvailabilityStartTime.String())
 	if err != nil {
-		log.Fatalf("error while parsing start time from manifest: %v\n", err)
+		m.logger.FatalLogger.Fatalf("error while parsing start time from manifest: %v\n", err)
 	}
 	now := time.Now()
 	diffTime := now.Unix() - startTime.Unix()
@@ -207,7 +204,7 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 				}
 				if !m.initAudio {
 					iniUrl := m.getRelativePath() + *adaptation.SegmentTemplate.Initialization
-					fmt.Println(iniUrl, "<--------------INI AUDIO")
+					m.logger.InfoLogger.Printf("%v<--------------INI AUDIO\n", iniUrl)
 					m.fetchAndWriteToFile(iniUrl, m.fileAudio)
 					m.initAudio = true
 				}
@@ -230,26 +227,30 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 	}
 
 	urlAudio := m.getBaseUrl() + audioMedia
-	fmt.Println(urlAudio, "<--------------WRITE AUDIO")
+	m.logger.InfoLogger.Printf("%v<--------------WRITE AUDIO\n", urlAudio)
 	m.fetchAndWriteToFile(urlAudio, m.fileAudio)
 }
 func (m *MpegDash) fetchAndWriteToFile(url string, f *os.File) {
 	resp, err := http.Get(url)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Fatalf("error while closing body response %v, err: %v\n", url, err)
+			m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", url, err)
 		}
 	}()
 	if err != nil {
-		log.Fatalf("error while fetch url: %v, err: %v\n", url, err)
+		m.logger.FatalLogger.Fatalf("error while fetch url: %v, err: %v\n", url, err)
 	}
 	result, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("error while read response body url %v, err: %v\n", url, err)
+		m.logger.FatalLogger.Fatalf("error while read response body url %v, err: %v\n", url, err)
+	}
+
+	if m.stopped {
+		return
 	}
 
 	if _, err = f.Write(result); err != nil {
-		log.Fatalf("error while write to file. err: %v\n", err)
+		m.logger.FatalLogger.Fatalf("error while write to file. err: %v\n", err)
 	}
 }
 func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int64, media string) string {

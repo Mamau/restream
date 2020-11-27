@@ -95,6 +95,7 @@ func (s *Stream) stopCommand() {
 		zap.String("stream", s.Name),
 		zap.String("cmd", s.command.String()),
 	)
+
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
 		zap.L().Error("cant delete stream",
 			zap.String("stream", s.Name),
