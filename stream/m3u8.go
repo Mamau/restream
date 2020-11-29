@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type Chunk struct {
+type chunkM3u8 struct {
 	Name  string
 	Order int
 	Value []byte
@@ -25,7 +25,7 @@ type M3u8 struct {
 	chunkListName string
 	name          string
 	folder        string
-	chunksChan    chan Chunk
+	chunksChan    chan chunkM3u8
 	prevChunks    []string
 	file          *os.File
 	chunkListChan chan []string
@@ -38,7 +38,7 @@ func NewM3u8(outputName, folder, playlist string) *M3u8 {
 		name:          outputName,
 		folder:        folder,
 		playlist:      playlist,
-		chunksChan:    make(chan Chunk),
+		chunksChan:    make(chan chunkM3u8),
 		prevChunks:    make([]string, 0, 30),
 		chunkListChan: make(chan []string),
 	}
@@ -209,10 +209,10 @@ func (m *M3u8) fetchChunkInfoFromPlayList() {
 func (m *M3u8) fetchChunkList() []string {
 	var chunks []string
 	fullPath := fmt.Sprintf("%v/%v", m.basePath, m.chunkListName)
-	fmt.Println("fetching Chunk list...")
+	fmt.Println("fetching chunkM3u8 list...")
 	resp, err := http.Get(fullPath)
 	if err != nil {
-		log.Fatal("cant execJob Chunk file: ", err)
+		log.Fatal("cant execJob chunkM3u8 file: ", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -232,7 +232,7 @@ func (m *M3u8) fetchChunkList() []string {
 
 func (m *M3u8) downloadFilePart(chunkName string, order int) {
 	url := fmt.Sprintf("%v/%v", m.basePath, chunkName)
-	fmt.Printf("execJob Chunk %v...\n", chunkName)
+	fmt.Printf("execJob chunkM3u8 %v...\n", chunkName)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("cant get cunk %v, cause %v", url, err)
@@ -248,5 +248,5 @@ func (m *M3u8) downloadFilePart(chunkName string, order int) {
 		log.Fatalf("cant parse cunk %v, cause %v", url, err)
 	}
 
-	m.chunksChan <- Chunk{Name: chunkName, Order: order, Value: result}
+	m.chunksChan <- chunkM3u8{Name: chunkName, Order: order, Value: result}
 }

@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"errors"
 	"fmt"
 	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/storage"
@@ -14,6 +15,36 @@ import (
 	"time"
 )
 
+type fileType string
+
+const (
+	video fileType = "video"
+	audio          = "audio"
+)
+
+type chunkMpeg struct {
+	Type  fileType
+	Order int
+	Value []byte
+}
+type chunkQueue struct {
+	Next    int
+	Storage []*chunkMpeg
+}
+
+func (c *chunkQueue) SetChunk(chunk *chunkMpeg) {
+	c.Storage = append(c.Storage, chunk)
+}
+func (c *chunkQueue) GetNextCHunk() (*chunkMpeg, error) {
+	for _, v := range c.Storage {
+		if c.Next == v.Order {
+			c.Next++
+			return v, nil
+		}
+	}
+	return &chunkMpeg{}, errors.New("chunk not exists")
+}
+
 type MpegDash struct {
 	name        string
 	folder      string
@@ -21,8 +52,12 @@ type MpegDash struct {
 	initVideo   bool
 	processStop chan bool
 	stopped     bool
+	audioOrder  int
+	videoOrder  int
 	chunksAudio []string
 	chunksVideo []string
+	chunkList   map[fileType]*chunkQueue
+	chunksChan  chan *chunkMpeg
 	manifestUrl *url.URL
 	deadline    time.Duration
 	fileAudio   *os.File
@@ -31,21 +66,28 @@ type MpegDash struct {
 }
 
 func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
+	queue := make(map[fileType]*chunkQueue)
+	queue[video] = &chunkQueue{}
+	queue[audio] = &chunkQueue{}
+
 	m := &MpegDash{
 		name:        name,
 		manifestUrl: manifestUrl,
 		folder:      folder,
 		processStop: make(chan bool),
 		logger:      storage.NewStreamLogger(folder, name),
+		chunksChan:  make(chan *chunkMpeg),
+		chunkList:   queue,
 	}
 	m.deadlineJob()
 	return m
 }
-
 func (m *MpegDash) Start() {
 	m.setFiles()
 	for {
 		select {
+		case chunkData := <-m.chunksChan:
+			m.receiveAndWriteChunks(chunkData)
 		case <-m.processStop:
 			return
 		case <-time.Tick(1 * time.Second):
@@ -162,8 +204,9 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 					if !m.initVideo {
 						iniUrl := m.getRelativePath() + *repres.SegmentTemplate.Initialization
 						m.logger.InfoLogger.Printf("%v<--------------INI VIDEO\n", iniUrl)
-						m.fetchAndWriteToFile(iniUrl, m.fileVideo)
+						go m.downloadFilePart(iniUrl, m.videoOrder, video)
 						m.initVideo = true
+						m.videoOrder++
 					}
 
 					med := *repres.SegmentTemplate.Media
@@ -184,8 +227,8 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 		}
 	}
 	urlVideo := m.getBaseUrl() + videoMedia
-	m.logger.InfoLogger.Printf("%v<--------------WRITE VIDEO\n", urlVideo)
-	m.fetchAndWriteToFile(urlVideo, m.fileVideo)
+	go m.downloadFilePart(urlVideo, m.videoOrder, video)
+	m.videoOrder++
 }
 func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 	audioMedia := ""
@@ -204,9 +247,9 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 				}
 				if !m.initAudio {
 					iniUrl := m.getRelativePath() + *adaptation.SegmentTemplate.Initialization
-					m.logger.InfoLogger.Printf("%v<--------------INI AUDIO\n", iniUrl)
-					m.fetchAndWriteToFile(iniUrl, m.fileAudio)
+					go m.downloadFilePart(iniUrl, m.audioOrder, audio)
 					m.initAudio = true
+					m.audioOrder++
 				}
 
 				media := *adaptation.SegmentTemplate.Media
@@ -227,30 +270,45 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 	}
 
 	urlAudio := m.getBaseUrl() + audioMedia
-	m.logger.InfoLogger.Printf("%v<--------------WRITE AUDIO\n", urlAudio)
-	m.fetchAndWriteToFile(urlAudio, m.fileAudio)
+	go m.downloadFilePart(urlAudio, m.audioOrder, audio)
+	m.audioOrder++
 }
-func (m *MpegDash) fetchAndWriteToFile(url string, f *os.File) {
-	resp, err := http.Get(url)
+func (m *MpegDash) downloadFilePart(fullUrl string, order int, t fileType) {
+	resp, err := http.Get(fullUrl)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", url, err)
+			m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", fullUrl, err)
 		}
 	}()
+
 	if err != nil {
-		m.logger.FatalLogger.Fatalf("error while fetch url: %v, err: %v\n", url, err)
+		m.logger.FatalLogger.Fatalf("error while fetch url: %v, err: %v\n", fullUrl, err)
 	}
+
 	result, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		m.logger.FatalLogger.Fatalf("error while read response body url %v, err: %v\n", url, err)
+		m.logger.FatalLogger.Fatalf("error while read response body url %v, err: %v\n", fullUrl, err)
 	}
 
-	if m.stopped {
-		return
-	}
+	m.chunksChan <- &chunkMpeg{Type: t, Order: order, Value: result}
+}
+func (m *MpegDash) receiveAndWriteChunks(chunkData *chunkMpeg) {
+	t := m.chunkList[chunkData.Type]
+	t.SetChunk(chunkData)
 
-	if _, err = f.Write(result); err != nil {
-		m.logger.FatalLogger.Fatalf("error while write to file. err: %v\n", err)
+	chunk, err := t.GetNextCHunk()
+	if err == nil {
+		if chunk.Type == video {
+			if _, err := m.fileVideo.Write(chunk.Value); err != nil {
+				m.logger.FatalLogger.Fatalf("write part to output file %v, error: %v\n", err, chunk.Type)
+			}
+		}
+		if chunk.Type == audio {
+			if _, err := m.fileAudio.Write(chunk.Value); err != nil {
+				m.logger.FatalLogger.Fatalf("write part to output file %v, erorr: %v\n", err, chunk.Type)
+			}
+		}
+		m.logger.InfoLogger.Printf("write chunk %v, order: %v\n", chunk.Type, chunk.Order)
 	}
 }
 func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int64, media string) string {
