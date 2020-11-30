@@ -23,9 +23,10 @@ const (
 )
 
 type chunkMpeg struct {
-	Type  fileType
-	Order int
-	Value []byte
+	Type     fileType
+	Recorded bool
+	Order    int
+	Value    []byte
 }
 type chunkQueue struct {
 	Next    int
@@ -36,13 +37,31 @@ func (c *chunkQueue) SetChunk(chunk *chunkMpeg) {
 	c.Storage = append(c.Storage, chunk)
 }
 func (c *chunkQueue) GetNextCHunk() (*chunkMpeg, error) {
+	c.FlushRecorded()
 	for _, v := range c.Storage {
 		if c.Next == v.Order {
 			c.Next++
+			v.Recorded = true
 			return v, nil
 		}
 	}
 	return &chunkMpeg{}, errors.New("chunk not exists")
+}
+func (c *chunkQueue) GetAll() int {
+	return len(c.Storage)
+}
+func (c *chunkQueue) FlushRecorded() {
+	var recorded []int
+	for i, v := range c.Storage {
+		if v.Recorded {
+			recorded = append(recorded, i)
+		}
+	}
+	for _, v := range recorded {
+		c.Storage[v] = c.Storage[len(c.Storage)-1]
+		c.Storage[len(c.Storage)-1] = nil
+		c.Storage = c.Storage[:len(c.Storage)-1]
+	}
 }
 
 type MpegDash struct {
@@ -87,7 +106,7 @@ func (m *MpegDash) Start() {
 	for {
 		select {
 		case chunkData := <-m.chunksChan:
-			m.receiveAndWriteChunks(chunkData)
+			m.writeChunkToFile(chunkData)
 		case <-m.processStop:
 			return
 		case <-time.Tick(1 * time.Second):
@@ -161,7 +180,6 @@ func (m *MpegDash) getRelativePath() string {
 	return fmt.Sprintf("%v%v/", strings.TrimRight(m.getBaseUrl(), "/"), cutedPath)
 }
 func (m *MpegDash) fetchManifest() {
-	m.logger.InfoLogger.Println("----------fetch manifest----------")
 	response, err := http.Get(m.manifestUrl.String())
 	if err != nil {
 		m.logger.FatalLogger.Fatalf("fetch manifest file error: %v\n", err)
@@ -203,7 +221,6 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 					}
 					if !m.initVideo {
 						iniUrl := m.getRelativePath() + *repres.SegmentTemplate.Initialization
-						m.logger.InfoLogger.Printf("%v<--------------INI VIDEO\n", iniUrl)
 						go m.downloadFilePart(iniUrl, m.videoOrder, video)
 						m.initVideo = true
 						m.videoOrder++
@@ -292,23 +309,20 @@ func (m *MpegDash) downloadFilePart(fullUrl string, order int, t fileType) {
 
 	m.chunksChan <- &chunkMpeg{Type: t, Order: order, Value: result}
 }
-func (m *MpegDash) receiveAndWriteChunks(chunkData *chunkMpeg) {
+func (m *MpegDash) writeChunkToFile(chunkData *chunkMpeg) {
 	t := m.chunkList[chunkData.Type]
 	t.SetChunk(chunkData)
 
-	chunk, err := t.GetNextCHunk()
-	if err == nil {
-		if chunk.Type == video {
-			if _, err := m.fileVideo.Write(chunk.Value); err != nil {
-				m.logger.FatalLogger.Fatalf("write part to output file %v, error: %v\n", err, chunk.Type)
-			}
-		}
+	if chunk, err := t.GetNextCHunk(); err == nil {
+		file := m.fileVideo
 		if chunk.Type == audio {
-			if _, err := m.fileAudio.Write(chunk.Value); err != nil {
-				m.logger.FatalLogger.Fatalf("write part to output file %v, erorr: %v\n", err, chunk.Type)
-			}
+			file = m.fileAudio
+		}
+		if _, err := file.Write(chunk.Value); err != nil {
+			m.logger.FatalLogger.Fatalf("write part to output file %v, erorr: %v\n", err, chunk.Type)
 		}
 		m.logger.InfoLogger.Printf("write chunk %v, order: %v\n", chunk.Type, chunk.Order)
+		m.logger.InfoLogger.Printf("total chunks %v", t.GetAll())
 	}
 }
 func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int64, media string) string {
