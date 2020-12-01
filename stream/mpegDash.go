@@ -27,7 +27,7 @@ type chunkMpeg struct {
 	Type     fileType
 	Recorded bool
 	Order    int
-	Value    io.ReadCloser
+	Value    io.Reader
 }
 type chunkQueue struct {
 	Next    int
@@ -38,7 +38,7 @@ func (c *chunkQueue) SetChunk(chunk *chunkMpeg) {
 	c.Storage = append(c.Storage, chunk)
 }
 func (c *chunkQueue) GetNextCHunk() (*chunkMpeg, error) {
-	c.FlushRecorded()
+	//c.FlushRecorded()
 	for _, v := range c.Storage {
 		if c.Next == v.Order {
 			c.Next++
@@ -219,7 +219,8 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 					}
 					if !m.initVideo {
 						iniUrl := m.getRelativePath() + *repres.SegmentTemplate.Initialization
-						go m.downloadFilePart(iniUrl, m.videoOrder, video)
+						chunkData := &chunkMpeg{Type: video, Order: m.videoOrder}
+						go m.downloadFilePart(iniUrl, chunkData)
 						m.initVideo = true
 						m.videoOrder++
 					}
@@ -242,7 +243,8 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 		}
 	}
 	urlVideo := m.getBaseUrl() + videoMedia
-	go m.downloadFilePart(urlVideo, m.videoOrder, video)
+	chunkData := &chunkMpeg{Type: video, Order: m.videoOrder}
+	go m.downloadFilePart(urlVideo, chunkData)
 	m.videoOrder++
 }
 func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
@@ -262,7 +264,8 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 				}
 				if !m.initAudio {
 					iniUrl := m.getRelativePath() + *adaptation.SegmentTemplate.Initialization
-					go m.downloadFilePart(iniUrl, m.audioOrder, audio)
+					chunkData := &chunkMpeg{Type: audio, Order: m.audioOrder}
+					go m.downloadFilePart(iniUrl, chunkData)
 					m.initAudio = true
 					m.audioOrder++
 				}
@@ -285,36 +288,28 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 	}
 
 	urlAudio := m.getBaseUrl() + audioMedia
-	go m.downloadFilePart(urlAudio, m.audioOrder, audio)
+	chunkData := &chunkMpeg{Type: audio, Order: m.audioOrder}
+	go m.downloadFilePart(urlAudio, chunkData)
 	m.audioOrder++
 }
-func (m *MpegDash) downloadFilePart(fullUrl string, order int, t fileType) {
+func (m *MpegDash) downloadFilePart(fullUrl string, chunkMpeg *chunkMpeg) {
 	resp, err := http.Get(fullUrl)
-	//defer func() {
-	//	if err := resp.Body.Close(); err != nil {
-	//		m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", fullUrl, err)
-	//	}
-	//}()
 
 	if err != nil {
 		m.logger.FatalLogger.Fatalf("error while fetch url: %v, err: %v\n", fullUrl, err)
 	}
 
-	//result, err := ioutil.ReadAll(resp.Body)
-	//if err != nil {
-	//	m.logger.FatalLogger.Fatalf("error while read response body url %v, err: %v\n", fullUrl, err)
-	//}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", fullUrl, err)
+		}
+	}()
 
-	//m.chunksChan <- &chunkMpeg{Type: t, Order: order, Value: resp.Body}
-	chunkMpeg := &chunkMpeg{Type: t, Order: order, Value: resp.Body}
-	m.writeChunkToFile(chunkMpeg)
+	chunkMpeg.Value = resp.Body
+	queue := m.chunkList[chunkMpeg.Type]
+	queue.SetChunk(chunkMpeg)
 
-}
-func (m *MpegDash) writeChunkToFile(chunkData *chunkMpeg) {
-	t := m.chunkList[chunkData.Type]
-	t.SetChunk(chunkData)
-
-	if chunk, err := t.GetNextCHunk(); err == nil {
+	if chunk, err := queue.GetNextCHunk(); err == nil {
 		file := m.fileVideo
 		if chunk.Type == audio {
 			file = m.fileAudio
@@ -322,18 +317,11 @@ func (m *MpegDash) writeChunkToFile(chunkData *chunkMpeg) {
 		if _, err := io.Copy(file, chunk.Value); err != nil {
 			m.logger.FatalLogger.Fatalf("write part to output file %v, erorr: %v\n", err, chunk.Type)
 		}
-		//if _, err := file.Write(chunk.Value); err != nil {
-		//	m.logger.FatalLogger.Fatalf("write part to output file %v, erorr: %v\n", err, chunk.Type)
-		//}
+
 		m.logger.InfoLogger.Printf("write chunk %v, order: %v\n", chunk.Type, chunk.Order)
-
-		defer func() {
-			if err := chunk.Value.Close(); err != nil {
-				m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", chunk.Order, err)
-			}
-		}()
+	} else {
+		m.logger.WarningLogger.Printf("NO CHUNK!?!?!?")
 	}
-
 }
 func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int64, media string) string {
 	formula := (int(diffTime) / (int(duration / timescale))) + int(startNumber)
