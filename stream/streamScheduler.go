@@ -3,6 +3,7 @@ package stream
 import (
 	"errors"
 	"fmt"
+	"github.com/mamau/restream/stream/mpeg"
 	"go.uber.org/zap"
 	"log"
 	"net/url"
@@ -58,7 +59,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 		if err != nil {
 			log.Fatalf("err creating url %v\n", err)
 		}
-		downloader = NewMpegDash(s.Name, folder, url4eg)
+		downloader = mpeg.NewMpegDash(s.Name, folder, url4eg)
 	} else {
 		downloader = NewM3u8(s.Name, folder, s.FileName)
 	}

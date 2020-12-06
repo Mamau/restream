@@ -1,4 +1,4 @@
-package stream
+package mpeg
 
 import (
 	"errors"
@@ -73,8 +73,10 @@ type MpegDash struct {
 	videoOrder  int
 	chunksAudio []string
 	chunksVideo []string
+	media       *media
 	chunkList   map[fileType]*chunkQueue
 	chunksChan  chan *chunkMpeg
+	manifest    *mpd.MPD
 	manifestUrl *url.URL
 	deadline    time.Duration
 	fileAudio   *os.File
@@ -88,6 +90,7 @@ func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
 	queue[audio] = &chunkQueue{}
 
 	m := &MpegDash{
+		media:       &media{},
 		name:        name,
 		manifestUrl: manifestUrl,
 		folder:      folder,
@@ -101,6 +104,8 @@ func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
 }
 func (m *MpegDash) Start() {
 	m.setFiles()
+	m.fetchManifest()
+
 	for {
 		select {
 		//case chunkData := <-m.chunksChan:
@@ -109,7 +114,19 @@ func (m *MpegDash) Start() {
 			return
 		case <-time.Tick(1 * time.Second):
 			if !m.stopped {
-				m.fetchManifest()
+				//m.fetchManifest()
+				currentMediaChunk := m.media.GetMedia()
+				if _, ok := helpers.Find(m.chunksVideo, currentMediaChunk); ok {
+					return
+				}
+				fmt.Println("Tick", m.videoOrder)
+				m.chunksVideo = m.collectorChunks(m.chunksVideo, currentMediaChunk)
+
+				urlVideo := m.getBaseUrl() + currentMediaChunk
+				chunkData := &chunkMpeg{Type: video, Order: m.videoOrder}
+
+				go m.downloadFilePart(urlVideo, chunkData)
+				m.videoOrder++
 			}
 		}
 	}
@@ -194,12 +211,78 @@ func (m *MpegDash) fetchManifest() {
 	if err != nil {
 		m.logger.FatalLogger.Fatalf("cant read body %v\n", err)
 	}
-	err = manifest.Decode(sliceOf)
-	if err != nil {
+
+	if err = manifest.Decode(sliceOf); err != nil {
 		m.logger.FatalLogger.Fatalf("error while decoding manifest file: %v\n", err)
 	}
-	go m.fetchAudio(manifest)
-	go m.fetchVideo(manifest)
+	m.manifest = manifest
+
+	startTime, err := time.Parse("2006-01-02T15:04:05", m.manifest.AvailabilityStartTime.String())
+	if err != nil {
+		m.logger.FatalLogger.Fatalf("error while parsing start time from manifest: %v\n", err)
+	}
+	diffTime := time.Now().Unix() - startTime.Unix()
+
+	videoMedia := ""
+	for _, period := range m.manifest.Period {
+		for _, adaptation := range period.AdaptationSets {
+			timescale := *adaptation.SegmentTemplate.Timescale
+
+			if adaptation.MimeType == "video/mp4" {
+				for _, repres := range adaptation.Representations {
+					if videoMedia != "" {
+						continue
+					}
+					if !m.initVideo {
+						m.initFirstVideo(*repres.SegmentTemplate.Initialization)
+					}
+
+					videoMedia = *repres.SegmentTemplate.Media
+					duration := *repres.SegmentTemplate.Duration
+					startNumber := *repres.SegmentTemplate.StartNumber
+
+					m.media.SetMedia(duration, timescale, startNumber, diffTime, videoMedia)
+
+					//m.startFetchingChunk(repres, timescale, diffTime)
+					//videoMedia = "www"
+				}
+			}
+
+		}
+	}
+
+	//go m.fetchAudio(manifest)
+	//go m.fetchVideo(manifest)
+}
+
+//func (m *MpegDash) startFetchingChunk(repres mpd.Representation, timescale uint64, diffTime int64) {
+//	med := *repres.SegmentTemplate.Media
+//	duration := *repres.SegmentTemplate.Duration
+//	startNumber := *repres.SegmentTemplate.StartNumber
+//
+//	res := strings.Split(med, "/")
+//	videoMedia := strings.Join(res[3:], "/")
+//
+//	videoMedia = m.media.formula(duration, timescale, startNumber, diffTime, videoMedia)
+//	//videoMedia = m.formula(duration, timescale, startNumber, diffTime, videoMedia)
+//	if _, ok := helpers.Find(m.chunksVideo, videoMedia); ok {
+//		return
+//	}
+//	m.chunksVideo = m.collectorChunks(m.chunksVideo, videoMedia)
+//
+//	//media.SetMedia(videoMedia)
+//
+//	urlVideo := m.getBaseUrl() + videoMedia
+//	chunkData := &chunkMpeg{Type: video, Order: m.videoOrder}
+//	go m.downloadFilePart(urlVideo, chunkData)
+//	m.videoOrder++
+//}
+func (m *MpegDash) initFirstVideo(initUrl string) {
+	iniUrl := m.getRelativePath() + initUrl
+	chunkData := &chunkMpeg{Type: video, Order: m.videoOrder}
+	m.downloadFilePart(iniUrl, chunkData)
+	m.initVideo = true
+	m.videoOrder++
 }
 func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 	videoMedia := ""
@@ -233,7 +316,7 @@ func (m *MpegDash) fetchVideo(mpd *mpd.MPD) {
 					res := strings.Split(med, "/")
 					videoMedia = strings.Join(res[3:], "/")
 
-					videoMedia = m.formula(duration, timescale, startNumber, diffTime, videoMedia)
+					videoMedia = m.media.formula(duration, timescale, startNumber, diffTime, videoMedia)
 					if _, ok := helpers.Find(m.chunksVideo, videoMedia); ok {
 						return
 					}
@@ -277,7 +360,7 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 
 				urlMedia := strings.Split(media, "/")
 				audioMedia = strings.Join(urlMedia[3:], "/")
-				audioMedia = m.formula(duration, timeScale, startNumber, diffTime, audioMedia)
+				audioMedia = m.media.formula(duration, timeScale, startNumber, diffTime, audioMedia)
 
 				if _, ok := helpers.Find(m.chunksAudio, audioMedia); ok {
 					return
@@ -293,6 +376,7 @@ func (m *MpegDash) fetchAudio(mpd *mpd.MPD) {
 	m.audioOrder++
 }
 func (m *MpegDash) downloadFilePart(fullUrl string, chunkMpeg *chunkMpeg) {
+
 	resp, err := http.Get(fullUrl)
 
 	if err != nil {
@@ -317,18 +401,22 @@ func (m *MpegDash) downloadFilePart(fullUrl string, chunkMpeg *chunkMpeg) {
 		if _, err := io.Copy(file, chunk.Value); err != nil {
 			m.logger.FatalLogger.Fatalf("write part to output file %v, erorr: %v\n", err, chunk.Type)
 		}
+		splittedUrl := strings.Split(fullUrl, "/")
+		chunkName := splittedUrl[len(splittedUrl)-1]
 
+		m.logger.InfoLogger.Printf("chunk name---------------------------- %v", chunkName)
 		m.logger.InfoLogger.Printf("write chunk %v, order: %v\n", chunk.Type, chunk.Order)
 	} else {
 		m.logger.WarningLogger.Printf("NO CHUNK!?!?!?")
 	}
 }
-func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int64, media string) string {
-	formula := (int(diffTime) / (int(duration / timescale))) + int(startNumber)
-	num := fmt.Sprintf(media, formula)
-	res := strings.ReplaceAll(num, "$", "")
-	return strings.ReplaceAll(res, "Number", "")
-}
+
+//func (m *MpegDash) formula(duration, timescale, startNumber uint64, diffTime int64, media string) string {
+//	formula := (int(diffTime) / (int(duration / timescale))) + int(startNumber)
+//	num := fmt.Sprintf(media, formula)
+//	res := strings.ReplaceAll(num, "$", "")
+//	return strings.ReplaceAll(res, "Number", "")
+//}
 func (m *MpegDash) collectorChunks(store []string, value string) []string {
 	maxStoredPrevChunks := 10
 	slicePrevChunks := 5
