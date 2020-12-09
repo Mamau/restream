@@ -37,7 +37,9 @@ type MpegDash struct {
 
 func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
 	m := &MpegDash{
-		media:       &media{},
+		media: &media{
+			chunks: make(map[fileType]chunkMpeg),
+		},
 		name:        name,
 		manifestUrl: manifestUrl,
 		folder:      folder,
@@ -57,9 +59,21 @@ func (m *MpegDash) Start() {
 			return
 		case <-time.Tick(1 * time.Second):
 			if !m.stopped {
-				m.fetchVideo()
-				m.fetchAudio()
+				m.fetch(video, m.fileVideo)
+				m.fetch(audio, m.fileAudio)
 			}
+		}
+	}
+}
+func (m *MpegDash) fetch(f fileType, fl *os.File) {
+	currentMediaChunk := m.media.GetMediaByType(f)
+	if _, ok := helpers.Find(m.chunksVideo, currentMediaChunk); !ok {
+		urlVideo := m.getBaseUrl() + currentMediaChunk
+		m.logger.InfoLogger.Println("Get chunk:", currentMediaChunk, "...")
+		if err := m.downloadFilePart(urlVideo, fl); err != nil {
+			m.media.DecrementByType(f)
+		} else {
+			m.chunksVideo = m.collectorChunks(m.chunksVideo, currentMediaChunk)
 		}
 	}
 }
@@ -199,7 +213,7 @@ func (m *MpegDash) fetchManifest() {
 				audioStartNumber := *adaptation.SegmentTemplate.StartNumber
 				audioTimescale := *adaptation.SegmentTemplate.Timescale
 
-				m.media.SetAudioMedia(audioDuration, audioTimescale, audioStartNumber, diffTime, audioMedia)
+				m.media.SetByType(audio, audioDuration, audioTimescale, audioStartNumber, diffTime, audioMedia)
 			}
 			if adaptation.MimeType == "video/mp4" {
 				for _, repres := range adaptation.Representations {
@@ -214,7 +228,7 @@ func (m *MpegDash) fetchManifest() {
 					duration := *repres.SegmentTemplate.Duration
 					startNumber := *repres.SegmentTemplate.StartNumber
 
-					m.media.SetMedia(duration, timescale, startNumber, diffTime, videoMedia)
+					m.media.SetByType(video, duration, timescale, startNumber, diffTime, videoMedia)
 				}
 			}
 		}

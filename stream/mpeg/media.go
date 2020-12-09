@@ -6,7 +6,22 @@ import (
 	"strings"
 )
 
+type fileType string
+
+const (
+	video fileType = "video"
+	audio          = "audio"
+)
+
+type chunkMpeg struct {
+	Type            fileType
+	chunkNamePrefix string
+	chunkTimeName   int
+	startNumber     uint64
+}
+
 type media struct {
+	chunks               map[fileType]chunkMpeg
 	chunkTimeName        int
 	chunkAudioTimeName   int
 	chunkNamePrefix      string
@@ -14,6 +29,13 @@ type media struct {
 	startNumber          uint64
 }
 
+func (m *media) GetMediaByType(t fileType) string {
+	chunkPath := fmt.Sprintf("%v_%v.mp4", m.chunks[t].chunkNamePrefix, fmt.Sprintf("%09d", m.chunks[t].chunkTimeName))
+	chnk := m.chunks[t]
+	chnk.chunkTimeName += int(m.chunks[t].startNumber)
+	m.chunks[t] = chnk
+	return chunkPath
+}
 func (m *media) GetMedia() string {
 	chunkPath := fmt.Sprintf("%v_%v.mp4", m.chunkNamePrefix, fmt.Sprintf("%09d", m.chunkTimeName))
 	m.chunkTimeName += int(m.startNumber)
@@ -24,11 +46,29 @@ func (m *media) GetAudioMedia() string {
 	m.chunkAudioTimeName += int(m.startNumber)
 	return chunkPath
 }
+func (m *media) DecrementByType(t fileType) {
+	chnk := m.chunks[t]
+	chnk.chunkTimeName -= int(m.chunks[t].startNumber)
+	m.chunks[t] = chnk
+}
 func (m *media) DecrementMedia() {
 	m.chunkTimeName -= int(m.startNumber)
 }
 func (m *media) DecrementAudioMedia() {
 	m.chunkAudioTimeName -= int(m.startNumber)
+}
+func (m *media) SetByType(t fileType, duration, timescale, startNumber uint64, diffTime int64, media string) {
+	name := m.formula(duration, timescale, startNumber, diffTime, media)
+
+	parsedMedia := strings.Split(name, "_")
+	n := strings.Split(parsedMedia[len(parsedMedia)-1], ".")
+	result, err := strconv.Atoi(n[0])
+	if err != nil {
+		fmt.Printf("cant parse chunk name %v, error: %v\n", parsedMedia, err)
+	}
+	res := strings.Split(parsedMedia[0], "/")
+	chnk := chunkMpeg{Type: t, chunkTimeName: result, startNumber: startNumber, chunkNamePrefix: strings.Join(res[3:], "/")}
+	m.chunks[t] = chnk
 }
 func (m *media) SetAudioMedia(duration, timescale, startNumber uint64, diffTime int64, media string) {
 	name := m.formula(duration, timescale, startNumber, diffTime, media)
