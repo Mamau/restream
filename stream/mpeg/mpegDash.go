@@ -59,13 +59,13 @@ func (m *MpegDash) Start() {
 			return
 		case <-time.Tick(1 * time.Second):
 			if !m.stopped {
-				m.fetch(video, m.fileVideo)
-				m.fetch(audio, m.fileAudio)
+				m.fetchChunk(video, m.fileVideo)
+				m.fetchChunk(audio, m.fileAudio)
 			}
 		}
 	}
 }
-func (m *MpegDash) fetch(f fileType, fl *os.File) {
+func (m *MpegDash) fetchChunk(f fileType, fl *os.File) {
 	currentMediaChunk := m.media.GetMediaByType(f)
 	if _, ok := helpers.Find(m.chunksVideo, currentMediaChunk); !ok {
 		urlVideo := m.getBaseUrl() + currentMediaChunk
@@ -77,37 +77,12 @@ func (m *MpegDash) fetch(f fileType, fl *os.File) {
 		}
 	}
 }
-func (m *MpegDash) fetchVideo() {
-	currentMediaChunk := m.media.GetMedia()
-	if _, ok := helpers.Find(m.chunksVideo, currentMediaChunk); !ok {
-		urlVideo := m.getBaseUrl() + currentMediaChunk
-		m.logger.InfoLogger.Println("Get chunk:", currentMediaChunk, "...")
-		if err := m.downloadFilePart(urlVideo, m.fileVideo); err != nil {
-			m.media.DecrementMedia()
-		} else {
-			m.chunksVideo = m.collectorChunks(m.chunksVideo, currentMediaChunk)
-		}
-	}
-}
-
-func (m *MpegDash) fetchAudio() {
-	currentMediaChunk := m.media.GetAudioMedia()
-	if _, ok := helpers.Find(m.chunksAudio, currentMediaChunk); !ok {
-		urlAudio := m.getBaseUrl() + currentMediaChunk
-		m.logger.InfoLogger.Println("Get chunk audio:", currentMediaChunk, "...")
-		if err := m.downloadFilePart(urlAudio, m.fileAudio); err != nil {
-			m.media.DecrementAudioMedia()
-		} else {
-			m.chunksVideo = m.collectorChunks(m.chunksVideo, currentMediaChunk)
-		}
-	}
-}
 
 func (m *MpegDash) Stop() {
 	m.logger.InfoLogger.Println("stop mpeg dash")
 	m.stopped = true
 	time.AfterFunc(7*time.Second, m.closeFiles)
-	//time.AfterFunc(10*time.Second, m.mergeAudioVideo)
+	time.AfterFunc(10*time.Second, m.mergeAudioVideo)
 	m.processStop <- true
 }
 func (m *MpegDash) SetDeadline(stopAt int64) {
@@ -169,7 +144,7 @@ func (m *MpegDash) getRelativePath() string {
 func (m *MpegDash) fetchManifest() {
 	response, err := http.Get(m.manifestUrl.String())
 	if err != nil {
-		m.logger.FatalLogger.Fatalf("fetch manifest file error: %v\n", err)
+		m.logger.FatalLogger.Fatalf("fetchChunk manifest file error: %v\n", err)
 	}
 	defer func() {
 		err := response.Body.Close()
@@ -205,7 +180,7 @@ func (m *MpegDash) fetchManifest() {
 					continue
 				}
 				if !m.initAudio {
-					m.initFirstAudio(*adaptation.SegmentTemplate.Initialization)
+					m.initFirstChunk(audio, *adaptation.SegmentTemplate.Initialization)
 				}
 
 				audioMedia = *adaptation.SegmentTemplate.Media
@@ -221,7 +196,7 @@ func (m *MpegDash) fetchManifest() {
 						continue
 					}
 					if !m.initVideo {
-						m.initFirstVideo(*repres.SegmentTemplate.Initialization)
+						m.initFirstChunk(video, *repres.SegmentTemplate.Initialization)
 					}
 
 					videoMedia = *repres.SegmentTemplate.Media
@@ -235,22 +210,26 @@ func (m *MpegDash) fetchManifest() {
 	}
 }
 
-func (m *MpegDash) initFirstVideo(initUrl string) {
+func (m *MpegDash) initFirstChunk(ft fileType, initUrl string) {
 	iniUrl := m.getRelativePath() + initUrl
-	m.downloadFilePart(iniUrl, m.fileVideo)
-	m.initVideo = true
-}
-
-func (m *MpegDash) initFirstAudio(initUrl string) {
-	iniUrl := m.getRelativePath() + initUrl
-	m.downloadFilePart(iniUrl, m.fileAudio)
-	m.initAudio = true
+	file := m.fileVideo
+	if ft == audio {
+		file = m.fileAudio
+	}
+	if err := m.downloadFilePart(iniUrl, file); err != nil {
+		m.logger.FatalLogger.Printf("error while init file %v, error: %v\n", ft, err)
+	}
+	if ft == audio {
+		m.initAudio = true
+	} else {
+		m.initVideo = true
+	}
 }
 
 func (m *MpegDash) downloadFilePart(fullUrl string, f *os.File) error {
 	resp, err := http.Get(fullUrl)
 	if err != nil {
-		m.logger.FatalLogger.Fatalf("error while fetch url: %v, err: %v\n", fullUrl, err)
+		m.logger.FatalLogger.Fatalf("error while fetchChunk url: %v, err: %v\n", fullUrl, err)
 	}
 
 	defer func() {
