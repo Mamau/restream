@@ -6,6 +6,7 @@ import (
 	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/storage"
 	"github.com/unki2aut/go-mpd"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -26,6 +27,7 @@ type MpegDash struct {
 	videoOrder  int
 	chunksAudio []string
 	chunksVideo []string
+	counter     *helpers.WriteCounter
 	media       *media
 	manifest    *mpd.MPD
 	manifestUrl *url.URL
@@ -40,6 +42,7 @@ func NewMpegDash(name, folder string, manifestUrl *url.URL) *MpegDash {
 		media: &media{
 			chunks: make(map[fileType]chunkMpeg),
 		},
+		counter:     &helpers.WriteCounter{},
 		name:        name,
 		manifestUrl: manifestUrl,
 		folder:      folder,
@@ -69,15 +72,14 @@ func (m *MpegDash) fetchChunk(f fileType, fl *os.File) {
 	currentMediaChunk := m.media.GetMediaByType(f)
 	if _, ok := helpers.Find(m.chunksVideo, currentMediaChunk); !ok {
 		urlVideo := m.getBaseUrl() + currentMediaChunk
-		m.logger.InfoLogger.Println("Get chunk:", currentMediaChunk, "...")
 		if err := m.downloadFilePart(urlVideo, fl); err != nil {
 			m.media.DecrementByType(f)
 		} else {
+			m.logger.InfoLogger.Println("Get chunk:", currentMediaChunk, "...")
 			m.chunksVideo = m.collectorChunks(m.chunksVideo, currentMediaChunk)
 		}
 	}
 }
-
 func (m *MpegDash) Stop() {
 	m.logger.InfoLogger.Println("stop mpeg dash")
 	m.stopped = true
@@ -101,9 +103,8 @@ func (m *MpegDash) deadlineJob() {
 func (m *MpegDash) mergeAudioVideo() {
 	m.logger.InfoLogger.Printf("start merge video %v and audio %v\n", m.fileVideo.Name(), m.fileAudio.Name())
 	resultedFileName := fmt.Sprintf("%v/%v.mp4", m.folder, m.name)
+	m.logger.InfoLogger.Printf("total download: %s\n", helpers.ByteHuman(m.counter.GetTotal(), 2))
 	command := exec.Command("ffmpeg", "-i", m.fileVideo.Name(), "-i", m.fileAudio.Name(), "-c", "copy", resultedFileName)
-	command.Stdout = m.logger.InfoLogger.Writer()
-	command.Stderr = m.logger.WarningLogger.Writer()
 	if err := command.Start(); err != nil {
 		m.logger.ErrorLogger.Printf("cant merge files, error %v\n", err)
 	}
@@ -209,7 +210,6 @@ func (m *MpegDash) fetchManifest() {
 		}
 	}
 }
-
 func (m *MpegDash) initFirstChunk(ft fileType, initUrl string) {
 	iniUrl := m.getRelativePath() + initUrl
 	file := m.fileVideo
@@ -225,7 +225,6 @@ func (m *MpegDash) initFirstChunk(ft fileType, initUrl string) {
 		m.initVideo = true
 	}
 }
-
 func (m *MpegDash) downloadFilePart(fullUrl string, f *os.File) error {
 	resp, err := http.Get(fullUrl)
 	if err != nil {
@@ -237,20 +236,17 @@ func (m *MpegDash) downloadFilePart(fullUrl string, f *os.File) error {
 			m.logger.FatalLogger.Fatalf("error while closing body response %v, err: %v\n", fullUrl, err)
 		}
 	}()
-	m.logger.InfoLogger.Println("HTTP Response Status:", resp.StatusCode, http.StatusText(resp.StatusCode))
+
 	if resp.StatusCode == 404 {
+		m.logger.InfoLogger.Println("HTTP Response Status:", resp.StatusCode, http.StatusText(resp.StatusCode))
 		return errors.New("not found chunk")
 	}
 
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	//if _, err := io.Copy(m.fileVideo, resp.Body); err != nil {
-	//	m.logger.FatalLogger.Fatalf("write part to output file, erorr: %v\n", err)
-	//}
-	counts, _ := f.Write(bytes)
-	m.logger.InfoLogger.Println("Writes: ------------ ", counts)
+	if _, err := io.Copy(f, io.TeeReader(resp.Body, m.counter)); err != nil {
+		m.logger.FatalLogger.Fatalf("write part to output file, erorr: %v\n", err)
+	}
 	return nil
 }
-
 func (m *MpegDash) collectorChunks(store []string, value string) []string {
 	maxStoredPrevChunks := 10
 	slicePrevChunks := 5
