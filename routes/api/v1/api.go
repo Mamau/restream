@@ -27,6 +27,18 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
+func streamStartTnt(w http.ResponseWriter, r *http.Request) {
+	var strm = stream.NewStream()
+	strm.FileName = stream.GetManifest()
+	strm.Name = "tnt"
+
+	if err := strm.Start(); err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	response.Json(w, "Stream starting...", http.StatusOK)
+}
+
 func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewScheduledStream()
 	if !validator.Validate(w, r, &contraints.ScheduleStart{Stream: strm}) {
@@ -83,6 +95,7 @@ func NewRouter() http.Handler {
 
 	r.Get("/player", index)
 	r.Post("/stream-start", streamStart)
+	r.Post("/stream-start-tnt", streamStartTnt)
 	r.Post("/stream-stop", streamStop)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
