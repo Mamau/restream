@@ -50,7 +50,6 @@ func (s *Stream) Start() error {
 	}
 
 	go s.runCommand([]string{"-re", "-i", s.FileName, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
-	//go s.runCommand([]string{"-re", "-i", s.FileName, "copy", "-f", "flv", "out11.flv"})
 	return nil
 }
 
@@ -80,11 +79,10 @@ func (s *Stream) runCommand(c []string) {
 	s.command.Stdout = os.Stdout
 	s.command.Stderr = os.Stderr
 	if err := s.command.Run(); err != nil {
-		fmt.Printf("-------------------------------NOT STARTED ERROR %v", err)
-		//zap.L().Error("cant start download stream",
-		//	zap.String("stream", s.Name),
-		//	zap.String("error", err.Error()),
-		//)
+		zap.L().Error("cant start download stream",
+			zap.String("stream", s.Name),
+			zap.String("error", err.Error()),
+		)
 		s.stopCommand()
 		return
 	}

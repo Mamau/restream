@@ -13,7 +13,7 @@ type StreamStart struct {
 
 func (s *StreamStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
-		"filename": []string{"required", "file_manifest_available"},
+		"filename": []string{"required"},
 		"name":     []string{"required"},
 	}
 
