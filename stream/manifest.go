@@ -26,7 +26,7 @@ func createWebDriver() (selenium.WebDriver, error) {
 	lg[seleLog.Performance] = seleLog.Info
 	caps.AddLogging(lg)
 
-	return selenium.NewRemote(caps, "http://0.0.0.0:4444/wd/hub")
+	return selenium.NewRemote(caps, "http://selenium:4444/wd/hub")
 }
 
 func GetManifest() string {

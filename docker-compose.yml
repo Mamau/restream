@@ -1,0 +1,24 @@
+version: '3.7'
+
+services:
+  restream:
+    container_name: restream
+    restart: always
+    image: mamau/restream:latest
+    ports:
+      - 8089:8089
+
+  selenium:
+    container_name: selenium
+    image: selenium/standalone-chrome:latest
+    ports:
+      - 4444:4444
+    volumes:
+      - /dev/shm:/dev/shm
+
+  nginx_rtmp:
+    container_name: nginx-rtmp
+    image: alfg/nginx-rtmp:latest
+    ports:
+      - 1935:1935
+      - 8080:80
