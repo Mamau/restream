@@ -8,6 +8,7 @@ import (
 	"github.com/mamau/restream/routes/validator"
 	"github.com/mamau/restream/routes/validator/contraints"
 	"github.com/mamau/restream/stream"
+	"github.com/mamau/restream/stream/selenium"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
@@ -29,9 +30,10 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 
 func streamStartTnt(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
-	strm.FileName = stream.GetManifest()
+	strm.FileName = selenium.GetManifest()
 	strm.Name = "tnt"
 
+	strm.Stop()
 	if err := strm.Start(); err != nil {
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return

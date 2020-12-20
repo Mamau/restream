@@ -1,14 +1,39 @@
-package stream
+package selenium
 
 import (
 	"errors"
+	"fmt"
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
 	seleLog "github.com/tebeka/selenium/log"
 	"log"
+	"os"
 	"regexp"
+	"sync"
 	"time"
 )
+
+var once sync.Once
+
+type Selenium struct {
+	wd selenium.WebDriver
+}
+
+var instance *Selenium
+
+func NewSelenium() *Selenium {
+	once.Do(func() {
+		wd, err := createWebDriver()
+		if err != nil {
+			log.Fatalf("cant create wevDriver, error: %v", err)
+		}
+		instance = &Selenium{
+			wd: wd,
+		}
+	})
+
+	return instance
+}
 
 func createWebDriver() (selenium.WebDriver, error) {
 	caps := selenium.Capabilities{"browserName": "chrome"}
@@ -30,10 +55,8 @@ func createWebDriver() (selenium.WebDriver, error) {
 }
 
 func GetManifest() string {
-	wd, err := createWebDriver()
-	if err != nil {
-		log.Fatalf("cant create wevDriver, error: %v", err)
-	}
+	s := NewSelenium()
+	wd := s.wd
 
 	defer func() {
 		if err := wd.Quit(); err != nil {
@@ -52,6 +75,7 @@ func fetchTntManifest(wd selenium.WebDriver) (string, error) {
 		log.Fatalf("error while fetch url: %v", err)
 	}
 
+	fmt.Println("go to tnt site and wait 2 sec")
 	time.Sleep(time.Second * 2)
 	elem, err := wd.FindElement(selenium.ByClassName, "live__frame")
 	if err != nil {
@@ -66,9 +90,16 @@ func fetchTntManifest(wd selenium.WebDriver) (string, error) {
 	if err := wd.Get(src); err != nil {
 		log.Fatalf("error while fetch url: %v", err)
 	}
+	fmt.Println("wait 5 sec")
 	time.Sleep(time.Second * 5)
+	//makeScreenshot(wd)
 
-	return findSourceAtLogs(wd)
+	link, err := findSourceAtLogs(wd)
+	if err != nil {
+		fmt.Println(err)
+		link, err = fetchTntManifest(wd)
+	}
+	return link, nil
 }
 func findSourceAtLogs(wd selenium.WebDriver) (string, error) {
 	message, err := wd.Log(seleLog.Performance)
@@ -84,4 +115,27 @@ func findSourceAtLogs(wd selenium.WebDriver) (string, error) {
 	}
 
 	return "", errors.New("live file is not found in logs")
+}
+func makeScreenshot(wd selenium.WebDriver) {
+	imgBytes, err := wd.Screenshot()
+	if err != nil {
+		fmt.Println("cant get screenshot")
+	}
+	e := os.Remove("screenshot.png")
+	if e != nil {
+		fmt.Println("no screenshot file or cant delete it")
+	}
+
+	f, err := os.OpenFile("screenshot.png", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println("cant close screenshot file")
+		}
+	}()
+	if _, err := f.Write(imgBytes); err != nil {
+		fmt.Println("cant write screenshot")
+	}
 }
