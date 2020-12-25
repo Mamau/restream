@@ -6,6 +6,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/routes/api/v1"
+	"github.com/mamau/restream/stream/selenium"
+
 	//apiMiddleware "github.com/mamau/restream/routes/middleware"
 	"go.uber.org/zap"
 	"net/http"
@@ -45,6 +47,8 @@ func Start() {
 			)
 		}
 	}()
+
+	selenium.NewSelenium()
 	fmt.Printf("Server starting at: http://localhost%v\n", srv.Addr)
 
 	c := make(chan os.Signal, 1)
