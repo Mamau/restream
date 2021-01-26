@@ -13,6 +13,15 @@ import (
 	"time"
 )
 
+type Channel string
+
+// The valid log levels.
+const (
+	TNT   Channel = "tnt"
+	FIRST Channel = "1tv"
+	MATCH Channel = "match"
+)
+
 var once sync.Once
 
 type Selenium struct {
@@ -52,9 +61,10 @@ func createWebDriver() (selenium.WebDriver, error) {
 	caps.AddLogging(lg)
 
 	return selenium.NewRemote(caps, "http://selenium:4444/wd/hub")
+	//return selenium.NewRemote(caps, "http://0.0.0.0:4444/wd/hub")
 }
 
-func GetManifest() string {
+func GetManifest(ch Channel) string {
 	s := NewSelenium()
 	wd := s.wd
 
@@ -64,11 +74,74 @@ func GetManifest() string {
 		}
 	}()
 
-	link, err := fetchTntManifest(wd)
+	var link string
+	var err error
+
+	switch ch {
+	case TNT:
+		link, err = fetchTntManifest(wd)
+	case FIRST:
+		link, err = fetch1tvManifest(wd)
+	case MATCH:
+		link, err = fetchMatchManifest(wd)
+	}
+
 	if err != nil {
 		log.Fatalln(err)
 	}
 	return link
+}
+func fetch1tvManifest(wd selenium.WebDriver) (string, error) {
+	if err := wd.Get("https://www.1tv.ru/live"); err != nil {
+		log.Fatalf("error while fetch url: %v", err)
+	}
+	fmt.Println("go to 1tv site and wait 5 sec")
+	time.Sleep(time.Second * 5)
+
+	link, err := findSourceAtLogs(wd, `https:\/\/edge(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`)
+	if err != nil {
+		fmt.Println(err)
+		link, err = fetchTntManifest(wd)
+	}
+
+	return link, nil
+}
+func fetchMatchManifest(wd selenium.WebDriver) (string, error) {
+	if err := wd.Get("https://matchtv.ru/on-air"); err != nil {
+		log.Fatalf("error while fetch url: %v", err)
+	}
+	fmt.Println("go to match site and wait 5 sec")
+	time.Sleep(time.Second * 5)
+
+	elem, err := wd.FindElement(selenium.ByID, "videoShare")
+	if err != nil {
+		log.Fatalf("not found id videoShare")
+	}
+	text, err := elem.GetAttribute("value")
+	if err != nil {
+		log.Fatalf("not found text")
+	}
+
+	re := regexp.MustCompile(`https:\/\/([a-z]+\.[a-z]+\/[a-z]+\/[a-z]+\/[a-z0-9]+)`)
+	src := re.Find([]byte(text))
+	if src == nil {
+		log.Fatalf("not found url in text")
+	}
+
+	fmt.Printf("go to %s\n", string(src))
+	if err := wd.Get(string(src)); err != nil {
+		log.Fatalf("error while fetch url: %v", err)
+	}
+	fmt.Println("wait 5 sec")
+	time.Sleep(time.Second * 5)
+	//makeScreenshot(wd)
+
+	link, err := findSourceAtLogs(wd, `https:\/\/live(.)+(\.m3u8)`)
+	if err != nil {
+		fmt.Println(err)
+		link, err = fetchTntManifest(wd)
+	}
+	return link, nil
 }
 func fetchTntManifest(wd selenium.WebDriver) (string, error) {
 	if err := wd.Get("https://tnt-online.ru/live"); err != nil {
@@ -94,20 +167,20 @@ func fetchTntManifest(wd selenium.WebDriver) (string, error) {
 	time.Sleep(time.Second * 5)
 	//makeScreenshot(wd)
 
-	link, err := findSourceAtLogs(wd)
+	link, err := findSourceAtLogs(wd, `https:\/\/live(.)+(\.m3u8)`)
 	if err != nil {
 		fmt.Println(err)
 		link, err = fetchTntManifest(wd)
 	}
 	return link, nil
 }
-func findSourceAtLogs(wd selenium.WebDriver) (string, error) {
+func findSourceAtLogs(wd selenium.WebDriver, pattern string) (string, error) {
 	message, err := wd.Log(seleLog.Performance)
 	if err != nil {
 		log.Fatalf("error get log, %s", err)
 	}
 
-	re := regexp.MustCompile(`https:\/\/live(.)+(\.m3u8)`)
+	re := regexp.MustCompile(pattern)
 	for _, v := range message {
 		if found := re.Find([]byte(v.Message)); found != nil {
 			return string(found), nil
@@ -116,6 +189,7 @@ func findSourceAtLogs(wd selenium.WebDriver) (string, error) {
 
 	return "", errors.New("live file is not found in logs")
 }
+
 func makeScreenshot(wd selenium.WebDriver) {
 	imgBytes, err := wd.Screenshot()
 	if err != nil {

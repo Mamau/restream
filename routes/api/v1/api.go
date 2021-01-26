@@ -30,8 +30,8 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 
 func streamStartTnt(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
-	strm.FileName = selenium.GetManifest()
-	strm.Name = "tnt"
+	strm.FileName = selenium.GetManifest(selenium.TNT)
+	strm.Name = string(selenium.TNT)
 
 	strm.Stop()
 	if err := strm.Start(); err != nil {
@@ -39,6 +39,34 @@ func streamStartTnt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Json(w, "Stream starting...", http.StatusOK)
+}
+
+func streamStart1tv(w http.ResponseWriter, r *http.Request) {
+	var strm = stream.NewStream()
+	strm.FileName = selenium.GetManifest(selenium.FIRST)
+	strm.Name = string(selenium.FIRST)
+
+	strm.Stop()
+	if err := strm.Start(); err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response.Json(w, fmt.Sprintf("Stream %s starting...", strm.Name), http.StatusOK)
+}
+
+func streamStartMatch(w http.ResponseWriter, r *http.Request) {
+	var strm = stream.NewStream()
+	strm.FileName = selenium.GetManifest(selenium.MATCH)
+	strm.Name = string(selenium.MATCH)
+
+	strm.Stop()
+	if err := strm.Start(); err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response.Json(w, fmt.Sprintf("Stream %s starting...", strm.Name), http.StatusOK)
 }
 
 func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +126,8 @@ func NewRouter() http.Handler {
 	r.Get("/player", index)
 	r.Post("/stream-start", streamStart)
 	r.Post("/stream-start-tnt", streamStartTnt)
+	r.Post("/stream-start-1tv", streamStart1tv)
+	r.Post("/stream-start-match", streamStartMatch)
 	r.Post("/stream-stop", streamStop)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
