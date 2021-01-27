@@ -30,7 +30,13 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 
 func streamStartTnt(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
-	strm.FileName = selenium.GetManifest(selenium.TNT)
+	fn, err := selenium.GetManifest(selenium.TNT)
+	if err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	strm.FileName = fn
 	strm.Name = string(selenium.TNT)
 
 	strm.Stop()
@@ -43,7 +49,12 @@ func streamStartTnt(w http.ResponseWriter, r *http.Request) {
 
 func streamStart1tv(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
-	strm.FileName = selenium.GetManifest(selenium.FIRST)
+	fn, err := selenium.GetManifest(selenium.FIRST)
+	if err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	strm.FileName = fn
 	strm.Name = string(selenium.FIRST)
 
 	strm.Stop()
@@ -57,7 +68,13 @@ func streamStart1tv(w http.ResponseWriter, r *http.Request) {
 
 func streamStartMatch(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
-	strm.FileName = selenium.GetManifest(selenium.MATCH)
+	fn, err := selenium.GetManifest(selenium.MATCH)
+	if err != nil {
+		response.Json(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	strm.FileName = fn
 	strm.Name = string(selenium.MATCH)
 
 	strm.Stop()

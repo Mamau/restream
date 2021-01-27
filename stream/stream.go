@@ -53,14 +53,6 @@ func (s *Stream) Start() error {
 	return nil
 }
 
-func (s *Stream) Start2() error {
-	if err := GetLive().SetStream(s); err != nil {
-		return err
-	}
-	fmt.Println("wtf")
-	return nil
-}
-
 func (s *Stream) Stop() {
 	if s.isStarted {
 		s.stopCommand()
