@@ -54,14 +54,14 @@ func (s *ScheduledStream) ScheduleDownload() error {
 
 	folder := fmt.Sprintf("%v/%v_%v-%v", pwd, s.Name, st, sp)
 	var downloader Downloader
-	if strings.Contains(s.FileName, ".mpd") {
-		url4eg, err := url.Parse(s.FileName)
+	if strings.Contains(s.Manifest, ".mpd") {
+		url4eg, err := url.Parse(s.Manifest)
 		if err != nil {
 			log.Fatalf("err creating url %v\n", err)
 		}
 		downloader = mpeg.NewMpegDash(s.Name, folder, url4eg)
 	} else {
-		downloader = NewM3u8(s.Name, folder, s.FileName)
+		downloader = NewM3u8(s.Name, folder, s.Manifest)
 	}
 	downloader.SetDeadline(s.StopAt)
 

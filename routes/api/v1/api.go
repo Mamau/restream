@@ -9,6 +9,7 @@ import (
 	"github.com/mamau/restream/routes/validator/contraints"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/selenium"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
@@ -28,62 +29,26 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
-func streamStartTnt(w http.ResponseWriter, r *http.Request) {
+func startChannel(w http.ResponseWriter, r *http.Request) {
+	stream.GetLive().StopAll()
 	var strm = stream.NewStream()
-	fn, err := selenium.GetManifest(selenium.TNT)
+	if !validator.Validate(w, r, &contraints.ChannelStart{Stream: strm}) {
+		return
+	}
+
+	fn, err := selenium.GetManifest(channel.Channel(strm.Name))
 	if err != nil {
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	strm.Manifest = fn
 
-	strm.FileName = fn
-	strm.Name = string(selenium.TNT)
-
-	strm.Stop()
-	if err := strm.Start(); err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	response.Json(w, "Stream starting...", http.StatusOK)
-}
-
-func streamStart1tv(w http.ResponseWriter, r *http.Request) {
-	var strm = stream.NewStream()
-	fn, err := selenium.GetManifest(selenium.FIRST)
-	if err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	strm.FileName = fn
-	strm.Name = string(selenium.FIRST)
-
-	strm.Stop()
 	if err := strm.Start(); err != nil {
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	response.Json(w, fmt.Sprintf("Stream %s starting...", strm.Name), http.StatusOK)
-}
-
-func streamStartMatch(w http.ResponseWriter, r *http.Request) {
-	var strm = stream.NewStream()
-	fn, err := selenium.GetManifest(selenium.MATCH)
-	if err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	strm.FileName = fn
-	strm.Name = string(selenium.MATCH)
-
-	strm.Stop()
-	if err := strm.Start(); err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	response.Json(w, fmt.Sprintf("Stream %s starting...", strm.Name), http.StatusOK)
+	response.Json(w, fmt.Sprintf("Channel %s starting...", strm.Name), http.StatusOK)
 }
 
 func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
@@ -142,9 +107,7 @@ func NewRouter() http.Handler {
 
 	r.Get("/player", index)
 	r.Post("/stream-start", streamStart)
-	r.Post("/stream-start-tnt", streamStartTnt)
-	r.Post("/stream-start-1tv", streamStart1tv)
-	r.Post("/stream-start-match", streamStartMatch)
+	r.Post("/start-channel", startChannel)
 	r.Post("/stream-stop", streamStop)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)

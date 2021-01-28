@@ -2,6 +2,7 @@ package strategy
 
 import (
 	"fmt"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/tebeka/selenium"
 	"log"
 	"regexp"
@@ -9,9 +10,8 @@ import (
 )
 
 func FetchMatchManifest(wd selenium.WebDriver) string {
-	url := "https://matchtv.ru/on-air"
-	fmt.Printf("-----go to %s site-----\n", url)
-	if err := wd.Get(url); err != nil {
+	fmt.Printf("-----go to %s site-----\n", channel.ChUrls[channel.MATCH])
+	if err := wd.Get(channel.ChUrls[channel.MATCH]); err != nil {
 		log.Fatalf("error while fetch url: %v", err)
 	}
 	fmt.Println("-----wait 3 sec-----")

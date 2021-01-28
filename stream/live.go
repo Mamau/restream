@@ -30,6 +30,13 @@ func (l *Live) AllStreams() map[string]Streamer {
 	return l.Streams
 }
 
+func (l *Live) StopAll() {
+	for _, v := range l.AllStreams() {
+		fmt.Printf("stopping %s stream", v.GetName())
+		v.Stop()
+	}
+}
+
 func (l *Live) SetStream(s Streamer) error {
 	if _, err := l.GetStream(s.GetName()); err != nil {
 		l.Streams[s.GetName()] = s

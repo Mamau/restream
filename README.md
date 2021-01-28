@@ -4,24 +4,23 @@
 
 Компиляция
 ```bash
-go build
+make build
 ```
 
 Запуск
 ```bash
-go run restream
+docker-compose up
 ``` 
 После `запуска` станет доступен хост http://localhost:89  
 
 Доступные роуты:  
-* /api/v1/stream-start (method: POST, params: filename, stream)
-* /api/v1/stream-stop (method: POST, params: filename, stream)
+* /api/v1/stream-start (method: POST, params: manifest, stream)
+* /api/v1/stream-stop (method: POST, params: manifest, stream)
 * /api/v1/streams (method: GET)
+* /api/v1/start-channel (method: POST, params: name[tnt|1tv|match])
 
 Пример запуска стрима:
 ```bash
-curl -d '{"stream":"myStream", "filename":"https://matchtv.ru/vdl/playlist/133529/adaptive/1603646236/003b4d95f7db681249f9b6252da9ecdc/web.m3u8"}' -H "Content-Type: application/json" -X POST http://localhost:89/api/v1/stream-start
-```
-#### Обязательно требуется ffmpeg
-#### Используется образ alfg/docker-nginx-rtmp 
-Для стриминга используется это https://github.com/alfg/docker-nginx-rtmp
+curl -d '{"name":"tnt"}' -H "Content-Type: application/json" -X POST http://localhost:89/api/v1/stream-start
+``` 
+При запуске роута start-channel селениум идет на соответствующий сайт, находит файл манифеста и начинает его рестримить.

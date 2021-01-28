@@ -27,7 +27,7 @@ type Downloader interface {
 
 type Stream struct {
 	isStarted bool
-	FileName  string `json:"filename"`
+	Manifest  string `json:"manifest"`
 	Name      string `json:"name"`
 	logPath   *os.File
 	command   *exec.Cmd
@@ -49,7 +49,7 @@ func (s *Stream) Start() error {
 		return err
 	}
 
-	go s.runCommand([]string{"-re", "-i", s.FileName, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
+	go s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
 	return nil
 }
 

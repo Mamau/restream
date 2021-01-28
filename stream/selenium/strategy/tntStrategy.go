@@ -2,15 +2,15 @@ package strategy
 
 import (
 	"fmt"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/tebeka/selenium"
 	"log"
 	"time"
 )
 
 func FetchTntManifest(wd selenium.WebDriver) string {
-	url := "https://tnt-online.ru/live"
-	fmt.Printf("-----go to %s site-----\n", url)
-	if err := wd.Get(url); err != nil {
+	fmt.Printf("-----go to %s site-----\n", channel.ChUrls[channel.TNT])
+	if err := wd.Get(channel.ChUrls[channel.TNT]); err != nil {
 		log.Fatalf("error while fetch url: %v", err)
 	}
 

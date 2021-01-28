@@ -15,7 +15,7 @@ func (s *ScheduleStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
 		"startAt":  []string{"required", "numeric"},
 		"stopAt":   []string{"required", "numeric"},
-		"filename": []string{"required", "file_manifest_available"},
+		"manifest": []string{"required", "file_manifest_available"},
 		"name":     []string{"required"},
 	}
 

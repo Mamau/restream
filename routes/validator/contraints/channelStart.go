@@ -7,20 +7,19 @@ import (
 	"net/url"
 )
 
-type StreamStart struct {
+type ChannelStart struct {
 	Stream *stream.Stream
 }
 
-func (s *StreamStart) Validate(r *http.Request) url.Values {
+func (c *ChannelStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
-		"manifest": []string{"required", "url"},
-		"name":     []string{"required"},
+		"name": []string{"required", "available_channels"},
 	}
 
 	opts := govalidator.Options{
 		Request: r,
 		Rules:   rules,
-		Data:    s.Stream,
+		Data:    c.Stream,
 	}
 	v := govalidator.New(opts)
 	return v.ValidateJSON()

@@ -3,21 +3,13 @@ package selenium
 import (
 	"errors"
 	"fmt"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/mamau/restream/stream/selenium/strategy"
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
 	seleLog "github.com/tebeka/selenium/log"
 	"log"
 	"sync"
-)
-
-type Channel string
-
-// The valid log levels.
-const (
-	TNT   Channel = "tnt"
-	FIRST Channel = "1tv"
-	MATCH Channel = "match"
 )
 
 var once sync.Once
@@ -43,6 +35,7 @@ func NewSelenium() *Selenium {
 }
 
 func createWebDriver() (selenium.WebDriver, error) {
+	fmt.Println("-----create selenium chrome driver-----")
 	caps := selenium.Capabilities{"browserName": "chrome"}
 	chromeCaps := chrome.Capabilities{
 		Path: "",
@@ -62,22 +55,23 @@ func createWebDriver() (selenium.WebDriver, error) {
 	//return selenium.NewRemote(caps, "http://0.0.0.0:4444/wd/hub")
 }
 
-func GetManifest(ch Channel) (string, error) {
+func GetManifest(ch channel.Channel) (string, error) {
 	s := NewSelenium()
 	wd := s.wd
 
 	defer func() {
+		fmt.Println("-----selenium quit-----")
 		if err := wd.Quit(); err != nil {
 			log.Fatalf("error while quit webDriver, error: %v", err)
 		}
 	}()
 
 	switch ch {
-	case TNT:
+	case channel.TNT:
 		return strategy.FetchTntManifest(wd), nil
-	case FIRST:
+	case channel.FIRST:
 		return strategy.Fetch1tvManifest(wd), nil
-	case MATCH:
+	case channel.MATCH:
 		return strategy.FetchMatchManifest(wd), nil
 	default:
 		return "", errors.New(fmt.Sprintf("Unknown type channel: %s", ch))
