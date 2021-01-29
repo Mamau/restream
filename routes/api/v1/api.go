@@ -30,7 +30,6 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func startChannel(w http.ResponseWriter, r *http.Request) {
-	stream.GetLive().StopAll()
 	var strm = stream.NewStream()
 	if !validator.Validate(w, r, &contraints.ChannelStart{Stream: strm}) {
 		return
