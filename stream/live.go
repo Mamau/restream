@@ -32,7 +32,6 @@ func (l *Live) AllStreams() map[string]Streamer {
 
 func (l *Live) StopAll() {
 	for _, v := range l.AllStreams() {
-		fmt.Printf("stopping %s stream", v.GetName())
 		v.Stop()
 	}
 }
@@ -54,10 +53,10 @@ func (l *Live) GetStream(name string) (Streamer, error) {
 }
 
 func (l *Live) DeleteStream(name string) (Streamer, error) {
-	strm, err := l.GetStream(name)
+	stream, err := l.GetStream(name)
 	if err == nil {
 		delete(l.Streams, name)
-		return strm, nil
+		return stream, nil
 	}
 	return &Stream{}, errors.New(fmt.Sprintf("Stream with name %v not found", name))
 }

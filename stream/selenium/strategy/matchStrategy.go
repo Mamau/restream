@@ -5,7 +5,6 @@ import (
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/tebeka/selenium"
 	"log"
-	"regexp"
 	"time"
 )
 
@@ -17,39 +16,30 @@ func FetchMatchManifest(wd selenium.WebDriver) string {
 	fmt.Println("-----wait 3 sec-----")
 	time.Sleep(time.Second * 3)
 
-	fmt.Println("-----searching sharing tag info-----")
-	elem, err := wd.FindElement(selenium.ByID, "videoShare")
+	//makeScreenshot(wd, channel.MATCH)
+
+	elem, err := wd.FindElement(selenium.ByClassName, "video-player")
+
 	if err != nil {
 		log.Fatalf("not found id videoShare")
 	}
 
-	fmt.Println("-----get value-----")
-	text, err := elem.GetAttribute("value")
-	if err != nil {
-		log.Fatalf("not found text")
+	if err := elem.Click(); err != nil {
+		fmt.Println("-----Cant click, try again-----")
+		FetchMatchManifest(wd)
 	}
 
-	fmt.Println("-----search link-----")
-	re := regexp.MustCompile(`https:\/\/([a-z]+\.[a-z]+\/[a-z]+\/[a-z]+\/[a-z0-9]+)`)
-	src := re.Find([]byte(text))
-	if src == nil {
-		log.Fatalf("not found url in text")
-	}
+	fmt.Println("-----wait 3 again sec-----")
+	time.Sleep(time.Second * 3)
 
-	fmt.Printf("-----go to %s-----\n", string(src))
-	if err := wd.Get(string(src)); err != nil {
-		log.Fatalf("error while fetch url: %v", err)
-	}
-	fmt.Println("-----wait 5 sec-----")
-	time.Sleep(time.Second * 5)
-
+	//makeScreenshot(wd, channel.MATCH)
 	fmt.Println("-----search manifest-----")
 	link, err := findSourceAtLogs(wd, `https:\/\/live(.)+(\.m3u8)`)
 	if err != nil {
 		fmt.Println(err)
 		link = FetchMatchManifest(wd)
 	}
-	fmt.Println("-----got link-----")
+	fmt.Println("-----got link-----", link)
 
 	return link
 }

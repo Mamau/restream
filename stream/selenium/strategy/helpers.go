@@ -3,11 +3,14 @@ package strategy
 import (
 	"errors"
 	"fmt"
+	"github.com/mamau/restream/helpers"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/tebeka/selenium"
 	seleLog "github.com/tebeka/selenium/log"
 	"log"
 	"os"
 	"regexp"
+	"time"
 )
 
 func findSourceAtLogs(wd selenium.WebDriver, pattern string) (string, error) {
@@ -26,17 +29,19 @@ func findSourceAtLogs(wd selenium.WebDriver, pattern string) (string, error) {
 	return "", errors.New("live file is not found in logs")
 }
 
-func makeScreenshot(wd selenium.WebDriver) {
+func makeScreenshot(wd selenium.WebDriver, channel channel.Channel) {
+	folder := fmt.Sprintf("%v/%v/%v", helpers.CurrentDir(), "storage/logs", channel)
+	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		log.Fatalf("cant create folder %s\n", folder)
+	}
+
 	imgBytes, err := wd.Screenshot()
 	if err != nil {
 		fmt.Println("cant get screenshot")
 	}
 
-	if e := os.Remove("screenshot.png"); e != nil {
-		fmt.Println("no screenshot file or cant delete it")
-	}
-
-	f, err := os.OpenFile("screenshot.png", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	screenShotName := fmt.Sprintf("%s/screenshot_%s.png", folder, time.Now().Format("15_04_05"))
+	f, err := os.OpenFile(screenShotName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		log.Fatalf("error while open screenshot file for write, err: %s\n", err)
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -69,24 +68,15 @@ func streamStop(w http.ResponseWriter, r *http.Request) {
 	var ds dataStream
 
 	if err := helpers.JsonRequestToMap(r, &ds); err != nil {
-		zap.L().Error("error while parse request",
-			zap.String("stream", ds.Name),
-			zap.String("error", err.Error()),
-		)
+		log.Printf("error while parse request stream: %s, error: %s\n", ds.Name, err.Error())
 		response.Json(w, "error while parse request", http.StatusBadRequest)
 		return
 	}
 
-	strm, err := stream.GetLive().DeleteStream(ds.Name)
-	if err != nil {
-		zap.L().Error("error stopping stream",
-			zap.String("error", err.Error()),
-		)
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
+	if strm, err := stream.GetLive().GetStream(ds.Name); err == nil {
+		strm.Stop()
+		response.Json(w, "Stream stopping...", http.StatusOK)
 	}
-	strm.Stop()
-	response.Json(w, "Stream stopping...", http.StatusOK)
 }
 
 func streams(w http.ResponseWriter, r *http.Request) {

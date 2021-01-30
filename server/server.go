@@ -6,8 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/routes/api/v1"
-	//apiMiddleware "github.com/mamau/restream/routes/middleware"
-	"go.uber.org/zap"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -40,9 +39,7 @@ func Start() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			zap.L().Fatal("cant listen",
-				zap.String("duration", err.Error()),
-			)
+			log.Fatalf("cant listen")
 		}
 	}()
 

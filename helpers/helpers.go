@@ -3,7 +3,9 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -81,4 +83,12 @@ func ByteHuman(length int, decimals int) (out string) {
 	}
 
 	return fmt.Sprintf("%d.%s %s", i, remainderString[:decimals], unit)
+}
+
+func CurrentDir() string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("cant get current directory")
+	}
+	return pwd
 }

@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
+	"github.com/mamau/restream/helpers"
+	"github.com/mamau/restream/storage"
 	"os"
 	"os/exec"
 	"syscall"
@@ -31,6 +32,7 @@ type Stream struct {
 	Name      string `json:"name"`
 	logPath   *os.File
 	command   *exec.Cmd
+	logger    *storage.StreamLogger
 }
 
 func NewStream() *Stream {
@@ -41,7 +43,13 @@ func (s *Stream) GetName() string {
 	return s.Name
 }
 
+func (s *Stream) setLogger() {
+	folder := fmt.Sprintf("%v/%v", helpers.CurrentDir(), "storage/logs")
+	s.logger = storage.NewStreamLogger(folder, s.Name)
+}
+
 func (s *Stream) Start() error {
+	s.setLogger()
 	if s.isStarted {
 		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
 	}
@@ -57,6 +65,7 @@ func (s *Stream) Stop() {
 	if s.isStarted {
 		s.stopCommand()
 	}
+	s.logger.ErrorLogger.Printf("stream %s is not started o.0", s.Name)
 }
 
 func (s *Stream) Download(d Downloader) {
@@ -66,23 +75,18 @@ func (s *Stream) Download(d Downloader) {
 	s.isStarted = true
 	d.Start()
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
-		zap.L().Error("cant delete stream",
-			zap.String("stream", s.Name),
-			zap.String("error", err.Error()),
-		)
+		s.logger.ErrorLogger.Printf("cant delete stream, stream %v, error %v\n", s.Name, err.Error())
 		return
 	}
 }
 
 func (s *Stream) runCommand(c []string) {
+	s.logger.InfoLogger.Printf("starting, stream %s\n", s.Name)
 	s.command = exec.Command("ffmpeg", c...)
 	s.command.Stdout = os.Stdout
 	s.command.Stderr = os.Stderr
-	if err := s.command.Run(); err != nil {
-		zap.L().Error("cant start download stream",
-			zap.String("stream", s.Name),
-			zap.String("error", err.Error()),
-		)
+	if err := s.command.Start(); err != nil {
+		s.logger.ErrorLogger.Printf("cant start download stream, stream %v, error %v\n", s.Name, err.Error())
 		s.stopCommand()
 		return
 	}
@@ -90,46 +94,27 @@ func (s *Stream) runCommand(c []string) {
 }
 
 func (s *Stream) stopCommand() {
-	zap.L().Info("stopping command...",
-		zap.Int("PID", s.command.Process.Pid),
-		zap.String("stream", s.Name),
-		zap.String("cmd", s.command.String()),
-	)
+	s.logger.InfoLogger.Printf("stopping command..., PID %v, stream %v cmd %s\n", s.command.Process.Pid, s.Name, s.command.String())
 
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
-		zap.L().Error("cant delete stream",
-			zap.String("stream", s.Name),
-			zap.String("error", err.Error()),
-		)
+		s.logger.ErrorLogger.Printf("cant delete stream, stream %v cmd %s\n", s.Name, err.Error())
 		return
 	}
 
 	if err := s.command.Process.Signal(syscall.SIGINT); err != nil {
-		zap.L().Error("cant stop process",
-			zap.String("stream", s.Name),
-			zap.Int("PID", s.command.Process.Pid),
-			zap.String("error", err.Error()),
-		)
-		zap.L().Info("lets kill it")
+		s.logger.ErrorLogger.Printf("cant stop process, stream %v, PID %v cmd %s\n", s.Name, s.command.Process.Pid, err.Error())
+		s.logger.InfoLogger.Println("lets kill it")
 		if err := s.command.Process.Kill(); err != nil {
-			zap.L().Fatal("cant kill process",
-				zap.String("stream", s.Name),
-				zap.Int("PID", s.command.Process.Pid),
-				zap.String("error", err.Error()),
-			)
+			s.logger.FatalLogger.Printf("cant kill process, stream %v, PID %v cmd %s\n", s.Name, s.command.Process.Pid, err.Error())
 		}
 		return
 	}
 
 	if _, err := s.command.Process.Wait(); err != nil {
-		zap.L().Fatal("cant wait process",
-			zap.String("stream", s.Name),
-			zap.Int("PID", s.command.Process.Pid),
-			zap.String("error", err.Error()),
-		)
+		s.logger.FatalLogger.Printf("cant wait process, stream %v, PID %v cmd %s\n", s.Name, s.command.Process.Pid, err.Error())
 	}
 
-	zap.L().Info("command stopped", zap.String("stream", s.Name))
+	s.logger.InfoLogger.Printf("command stopped stream %s\n", s.Name)
 }
 
 func (s *Stream) getStreamAddress() string {

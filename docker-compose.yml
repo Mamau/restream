@@ -7,6 +7,8 @@ services:
     image: mamau/restream:latest
     ports:
       - 8089:8089
+    volumes:
+      - ./:/storage
 
   selenium:
     container_name: selenium

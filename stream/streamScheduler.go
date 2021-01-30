@@ -45,6 +45,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	sp := time.Unix(s.StopAt, 10).Format(formatFolder)
 
 	if err := GetLive().SetStream(s); err != nil {
+		//todo: убрать zap logger
 		zap.L().Error("cant schedule stream",
 			zap.String("stream", s.Name),
 			zap.String("error", err.Error()),

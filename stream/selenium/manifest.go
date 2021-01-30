@@ -35,7 +35,6 @@ func NewSelenium() *Selenium {
 }
 
 func createWebDriver() (selenium.WebDriver, error) {
-	fmt.Println("-----create selenium chrome driver-----")
 	caps := selenium.Capabilities{"browserName": "chrome"}
 	chromeCaps := chrome.Capabilities{
 		Path: "",

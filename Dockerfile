@@ -13,6 +13,6 @@ RUN make build
 FROM ubuntu
 RUN apt-get update && apt-get install -y ffmpeg
 
-COPY --from=builder /app/bin/restream /restream
+COPY --from=builder /app/bin/restream /home/app/restream
 
-ENTRYPOINT ["/restream"]
+ENTRYPOINT ["/home/app/restream"]
