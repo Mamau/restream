@@ -1,14 +1,14 @@
 package contraints
 
 import (
-	"github.com/mamau/restream/stream"
+	"github.com/mamau/restream/stream/scheduler"
 	"github.com/thedevsaddam/govalidator"
 	"net/http"
 	"net/url"
 )
 
 type ScheduleStart struct {
-	Stream *stream.ScheduledStream
+	Stream *scheduler.ScheduledStream
 }
 
 func (s *ScheduleStart) Validate(r *http.Request) url.Values {
@@ -30,7 +30,7 @@ func (s *ScheduleStart) Validate(r *http.Request) url.Values {
 	return additionalCheckRules(s.Stream, errBag)
 }
 
-func additionalCheckRules(s *stream.ScheduledStream, errBag url.Values) url.Values {
+func additionalCheckRules(s *scheduler.ScheduledStream, errBag url.Values) url.Values {
 	if s.StopAt <= s.StartAt {
 		errBag.Add("startAt", "must be less than stop at")
 		errBag.Add("stopAt", "must be greater than start at")

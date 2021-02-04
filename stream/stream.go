@@ -27,7 +27,7 @@ type Downloader interface {
 }
 
 type Stream struct {
-	isStarted bool
+	IsStarted bool
 	Manifest  string `json:"manifest"`
 	Name      string `json:"name"`
 	logPath   *os.File
@@ -50,7 +50,7 @@ func (s *Stream) setLogger() {
 
 func (s *Stream) Start() error {
 	s.setLogger()
-	if s.isStarted {
+	if s.IsStarted {
 		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
 	}
 	if err := GetLive().SetStream(s); err != nil {
@@ -62,17 +62,17 @@ func (s *Stream) Start() error {
 }
 
 func (s *Stream) Stop() {
-	if s.isStarted {
+	if s.IsStarted {
 		s.stopCommand()
 	}
 	s.logger.ErrorLogger.Printf("stream %s is not started o.0", s.Name)
 }
 
 func (s *Stream) Download(d Downloader) {
-	if s.isStarted {
+	if s.IsStarted {
 		return
 	}
-	s.isStarted = true
+	s.IsStarted = true
 	d.Start()
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
 		s.logger.ErrorLogger.Printf("cant delete stream, stream %v, error %v\n", s.Name, err.Error())
@@ -90,7 +90,7 @@ func (s *Stream) runCommand(c []string) {
 		s.stopCommand()
 		return
 	}
-	s.isStarted = true
+	s.IsStarted = true
 }
 
 func (s *Stream) stopCommand() {

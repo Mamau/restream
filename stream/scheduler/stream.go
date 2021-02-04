@@ -1,8 +1,9 @@
-package stream
+package scheduler
 
 import (
 	"errors"
 	"fmt"
+	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/mpeg"
 	"go.uber.org/zap"
 	"log"
@@ -13,7 +14,7 @@ import (
 )
 
 type ScheduledStream struct {
-	*Stream
+	*stream.Stream
 	startChannelCommand chan bool
 	StartAt             int64 `json:"startAt"`
 	StopAt              int64 `json:"stopAt"`
@@ -21,13 +22,13 @@ type ScheduledStream struct {
 
 func NewScheduledStream() *ScheduledStream {
 	return &ScheduledStream{
-		Stream:              NewStream(),
+		Stream:              stream.NewStream(),
 		startChannelCommand: make(chan bool),
 	}
 }
 
 func (s *ScheduledStream) ScheduleDownload() error {
-	if s.isStarted {
+	if s.IsStarted {
 		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
 	}
 
@@ -44,7 +45,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	st := time.Unix(s.StartAt, 10).Format(formatFolder)
 	sp := time.Unix(s.StopAt, 10).Format(formatFolder)
 
-	if err := GetLive().SetStream(s); err != nil {
+	if err := stream.GetLive().SetStream(s); err != nil {
 		//todo: убрать zap logger
 		zap.L().Error("cant schedule stream",
 			zap.String("stream", s.Name),
@@ -54,7 +55,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	}
 
 	folder := fmt.Sprintf("%v/%v_%v-%v", pwd, s.Name, st, sp)
-	var downloader Downloader
+	var downloader stream.Downloader
 	if strings.Contains(s.Manifest, ".mpd") {
 		url4eg, err := url.Parse(s.Manifest)
 		if err != nil {
@@ -62,7 +63,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 		}
 		downloader = mpeg.NewMpegDash(s.Name, folder, url4eg)
 	} else {
-		downloader = NewM3u8(s.Name, folder, s.Manifest)
+		downloader = stream.NewM3u8(s.Name, folder, s.Manifest)
 	}
 	downloader.SetDeadline(s.StopAt)
 

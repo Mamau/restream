@@ -8,6 +8,7 @@ import (
 	"github.com/mamau/restream/routes/validator"
 	"github.com/mamau/restream/routes/validator/contraints"
 	"github.com/mamau/restream/stream"
+	"github.com/mamau/restream/stream/scheduler"
 	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"io/ioutil"
@@ -50,7 +51,7 @@ func startChannel(w http.ResponseWriter, r *http.Request) {
 }
 
 func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
-	var strm = stream.NewScheduledStream()
+	var strm = scheduler.NewScheduledStream()
 	if !validator.Validate(w, r, &contraints.ScheduleStart{Stream: strm}) {
 		return
 	}
