@@ -4,13 +4,14 @@ import (
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
+	"github.com/rk/go-cron"
 	"log"
 	"time"
 )
 
 type TimeTable struct {
-	StartAt int64
-	StopAt  int64
+	StartAt time.Time
+	StopAt  time.Time
 }
 
 type Channel struct {
@@ -19,30 +20,62 @@ type Channel struct {
 	TimeTables []*TimeTable
 }
 
-func CreateChannel(chName channel.Channel) *Channel {
+func CreateScheduledChannel(chName channel.Channel) *Channel {
 	ch := &Channel{
 		Stream: stream.NewStream(),
 	}
 	ch.Stream.Name = string(chName)
+	ch.setTimeTable()
+	ch.scheduleChannel()
 	return ch
 }
 
-func (c *Channel) Schedule() {
-	format := "15:04:05"
-	startAt, err := time.Parse(format, "18:00:00")
-	if err != nil {
-		log.Fatalf("cant parse time %s\n", err.Error())
+func (c *Channel) scheduleChannel() {
+	for _, v := range c.TimeTables {
+		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
+			c.Stream.StartWithDeadLine(v.StopAt)
+		})
 	}
-	stopAt, err := time.Parse(format, "20:00:00")
-	if err != nil {
-		log.Fatalf("cant parse time %s\n", err.Error())
-	}
-	plan1 := &TimeTable{StartAt: startAt.Unix(), StopAt: stopAt.Unix()}
-
-	c.TimeTables = []*TimeTable{plan1}
 }
 
-func (c *Channel) start() {
+func (c *Channel) setTimeTable() {
+	var timeTable []*TimeTable
+
+	periods := channel.TimeTable[channel.Channel(c.Name)]
+
+	for _, v := range periods {
+		timeTable = append(timeTable, c.createTimeTable(v[0], v[1]))
+	}
+
+	c.TimeTables = timeTable
+}
+
+func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
+	t := time.Now()
+	tt := time.Now()
+	format := "15:04:05"
+
+	start, err := time.Parse(format, startAt)
+	if err != nil {
+		log.Fatalf("cant parse time %s\n", err.Error())
+	}
+
+	stop, err := time.Parse(format, stopAt)
+	if err != nil {
+		log.Fatalf("cant parse time %s\n", err.Error())
+	}
+
+	if start.After(stop) {
+		tt = tt.Add(time.Hour * 24)
+	}
+
+	start = time.Date(t.Year(), t.Month(), t.Day(), start.Hour(), start.Minute(), start.Second(), 0, time.UTC)
+	stop = time.Date(tt.Year(), tt.Month(), tt.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.UTC)
+
+	return &TimeTable{StartAt: start, StopAt: stop}
+}
+
+func (c *Channel) startStream() {
 	manifest, err := selenium.GetManifest(channel.Channel(c.Stream.Name))
 	if err != nil {
 		log.Fatalf("cant start selenium %s\n", err.Error())

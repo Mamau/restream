@@ -6,6 +6,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/routes/api/v1"
+	"github.com/mamau/restream/stream/scheduler"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"log"
 	"net/http"
 	"os"
@@ -43,7 +45,7 @@ func Start() {
 		}
 	}()
 
-	//selenium.NewSelenium()
+	scheduleChannels()
 	fmt.Printf("Server starting at: http://localhost%v\n", srv.Addr)
 
 	c := make(chan os.Signal, 1)
@@ -53,4 +55,11 @@ func Start() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)
+}
+
+func scheduleChannels() {
+	for _, v := range []channel.Channel{channel.TNT, channel.FIRST} {
+		fmt.Printf("schedule channel: %s \n", v)
+		scheduler.CreateScheduledChannel(v)
+	}
 }

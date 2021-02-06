@@ -52,6 +52,11 @@ func (l *Live) GetStream(name string) (Streamer, error) {
 	return strm, nil
 }
 
+func (l *Live) HasStream(name string) bool {
+	_, ok := l.Streams[name]
+	return ok
+}
+
 func (l *Live) DeleteStream(name string) (Streamer, error) {
 	stream, err := l.GetStream(name)
 	if err == nil {

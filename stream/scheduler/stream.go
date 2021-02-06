@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/mpeg"
-	"go.uber.org/zap"
 	"log"
 	"net/url"
 	"os"
@@ -39,18 +38,14 @@ func (s *ScheduledStream) ScheduleDownload() error {
 
 	pwd, err := os.Getwd()
 	if err != nil {
-		zap.L().Error("cant get current directory")
+		s.Logger.ErrorLogger.Println("cant get current directory")
 		return errors.New("cant get current directory")
 	}
 	st := time.Unix(s.StartAt, 10).Format(formatFolder)
 	sp := time.Unix(s.StopAt, 10).Format(formatFolder)
 
 	if err := stream.GetLive().SetStream(s); err != nil {
-		//todo: убрать zap logger
-		zap.L().Error("cant schedule stream",
-			zap.String("stream", s.Name),
-			zap.String("error", err.Error()),
-		)
+		s.Logger.ErrorLogger.Printf("cant schedule stream, stream %s, error %s", s.Name, err.Error())
 		return err
 	}
 
@@ -67,10 +62,8 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	}
 	downloader.SetDeadline(s.StopAt)
 
-	zap.L().Info("stream scheduled download",
-		zap.String("startAfter", time.Unix(s.StartAt, 10).Format(format)),
-		zap.String("stopAfter", time.Unix(s.StopAt, 10).Format(format)),
-	)
+	s.Logger.InfoLogger.Printf("stream scheduled download, startAfter: %s stopAfter: %s \n",
+		time.Unix(s.StartAt, 10).Format(format), time.Unix(s.StopAt, 10).Format(format))
 
 	time.AfterFunc(time.Duration(startAfter)*time.Second, func() { s.Download(downloader) })
 	return nil
