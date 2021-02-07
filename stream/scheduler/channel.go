@@ -32,18 +32,12 @@ func CreateScheduledChannel(chName channel.Channel) *Channel {
 func (c *Channel) scheduleChannel() {
 	for _, v := range c.TimeTables {
 		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
-			c.fetchManifest()
-			c.Stream.StartWithDeadLine(v.StopAt)
+			c.Stream.SetDeadline(&v.StopAt)
+			if err := c.Stream.StartViaSelenium(true); err != nil {
+				c.Stream.Logger.FatalLogger.Fatalf("cant start via selenium %s, err: %s\n", c.Stream.Name, err.Error())
+			}
 		})
 	}
-}
-
-func (c *Channel) fetchManifest() {
-	fn, err := selenium.GetManifest(channel.Channel(c.Stream.Name))
-	if err != nil {
-		c.Stream.Logger.FatalLogger.Fatalf("cant fetch manifest, stream: %s, err: %s", c.Stream.Name, err.Error())
-	}
-	c.Stream.Manifest = fn
 }
 
 func (c *Channel) setTimeTable() {

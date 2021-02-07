@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/storage"
+	"github.com/mamau/restream/stream/selenium"
+	"github.com/mamau/restream/stream/selenium/channel"
 	"os"
 	"os/exec"
 	"syscall"
@@ -34,16 +36,23 @@ type Stream struct {
 	Manifest  string `json:"manifest"`
 	Name      string `json:"name"`
 	logPath   *os.File
+	deadLine  *time.Time
 	command   *exec.Cmd
 	Logger    *storage.StreamLogger
 }
 
 func NewStream() *Stream {
-	return &Stream{}
+	s := &Stream{}
+	s.setLogger()
+	return s
 }
 
 func (s *Stream) GetName() string {
 	return s.Name
+}
+
+func (s *Stream) SetDeadline(deadLine *time.Time) {
+	s.deadLine = deadLine
 }
 
 func (s *Stream) setLogger() {
@@ -52,10 +61,14 @@ func (s *Stream) setLogger() {
 }
 
 func (s *Stream) Start() error {
-	s.setLogger()
 	if s.IsStarted {
 		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
 	}
+
+	if s.Manifest == "" {
+		return errors.New(fmt.Sprintf("no manifest file at stream: %s \n", s.Name))
+	}
+
 	if err := GetLive().SetStream(s); err != nil {
 		return err
 	}
@@ -64,15 +77,39 @@ func (s *Stream) Start() error {
 	return nil
 }
 
-func (s *Stream) StartWithDeadLine(deadLine time.Time) {
+func (s *Stream) StartWithDeadLine() error {
+	if s.deadLine == nil {
+		return errors.New(fmt.Sprintf("need set deadline"))
+	}
 	if err := s.Start(); err != nil {
-		s.Logger.ErrorLogger.Printf("cant start stream %s with deadline, err: %s\n", s.Name, err.Error())
+		return errors.New(fmt.Sprintf("cant start stream %s with deadline, err: %s\n", s.Name, err.Error()))
 	}
 
-	end := deadLine.Unix() - time.Now().Unix()
+	end := s.deadLine.Unix() - time.Now().Unix()
 	time.AfterFunc(time.Duration(end)*time.Second, func() {
 		s.Stop()
 	})
+	return nil
+}
+
+func (s *Stream) StartViaSelenium(withDeadline bool) error {
+	if err := s.fetchManifest(); err != nil {
+		s.Logger.FatalLogger.Printf("cant fetch manifest via selenium %s\n", s.Name)
+	}
+
+	if withDeadline {
+		return s.StartWithDeadLine()
+	}
+	return s.Start()
+}
+
+func (s *Stream) fetchManifest() error {
+	manifest, err := selenium.GetManifest(channel.Channel(s.Name))
+	if err != nil {
+		return err
+	}
+	s.Manifest = manifest
+	return nil
 }
 
 func (s *Stream) Stop() {

@@ -9,8 +9,6 @@ import (
 	"github.com/mamau/restream/routes/validator/contraints"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/scheduler"
-	"github.com/mamau/restream/stream/selenium"
-	"github.com/mamau/restream/stream/selenium/channel"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -35,14 +33,7 @@ func startChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fn, err := selenium.GetManifest(channel.Channel(strm.Name))
-	if err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	strm.Manifest = fn
-
-	if err := strm.Start(); err != nil {
+	if err := strm.StartViaSelenium(false); err != nil {
 		response.Json(w, err.Error(), http.StatusBadRequest)
 		return
 	}
