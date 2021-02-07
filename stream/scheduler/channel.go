@@ -5,7 +5,6 @@ import (
 	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/rk/go-cron"
-	"log"
 	"time"
 )
 
@@ -33,9 +32,18 @@ func CreateScheduledChannel(chName channel.Channel) *Channel {
 func (c *Channel) scheduleChannel() {
 	for _, v := range c.TimeTables {
 		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
+			c.fetchManifest()
 			c.Stream.StartWithDeadLine(v.StopAt)
 		})
 	}
+}
+
+func (c *Channel) fetchManifest() {
+	fn, err := selenium.GetManifest(channel.Channel(c.Stream.Name))
+	if err != nil {
+		c.Stream.Logger.FatalLogger.Fatalf("cant fetch manifest, stream: %s, err: %s", c.Stream.Name, err.Error())
+	}
+	c.Stream.Manifest = fn
 }
 
 func (c *Channel) setTimeTable() {
@@ -57,12 +65,12 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 
 	start, err := time.Parse(format, startAt)
 	if err != nil {
-		log.Fatalf("cant parse time %s\n", err.Error())
+		c.Stream.Logger.FatalLogger.Fatalf("cant parse time %s\n", err.Error())
 	}
 
 	stop, err := time.Parse(format, stopAt)
 	if err != nil {
-		log.Fatalf("cant parse time %s\n", err.Error())
+		c.Stream.Logger.FatalLogger.Fatalf("cant parse time %s\n", err.Error())
 	}
 
 	if start.After(stop) {
@@ -78,11 +86,11 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 func (c *Channel) startStream() {
 	manifest, err := selenium.GetManifest(channel.Channel(c.Stream.Name))
 	if err != nil {
-		log.Fatalf("cant start selenium %s\n", err.Error())
+		c.Stream.Logger.FatalLogger.Fatalf("cant start selenium %s\n", err.Error())
 	}
 
 	c.Stream.Manifest = manifest
 	if err := c.Stream.Start(); err != nil {
-		log.Fatalf("cant start stream %s\n", err.Error())
+		c.Stream.Logger.FatalLogger.Fatalf("cant start stream %s\n", err.Error())
 	}
 }

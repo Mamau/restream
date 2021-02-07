@@ -9,29 +9,18 @@ import (
 	"github.com/tebeka/selenium/chrome"
 	seleLog "github.com/tebeka/selenium/log"
 	"log"
-	"sync"
 )
-
-var once sync.Once
 
 type Selenium struct {
 	wd selenium.WebDriver
 }
 
-var instance *Selenium
-
 func NewSelenium() *Selenium {
-	once.Do(func() {
-		wd, err := createWebDriver()
-		if err != nil {
-			log.Fatalf("cant create wevDriver, error: %v", err)
-		}
-		instance = &Selenium{
-			wd: wd,
-		}
-	})
-
-	return instance
+	wd, err := createWebDriver()
+	if err != nil {
+		log.Fatalf("cant create wevDriver, error: %v", err)
+	}
+	return &Selenium{wd}
 }
 
 func createWebDriver() (selenium.WebDriver, error) {

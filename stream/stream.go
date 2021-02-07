@@ -14,6 +14,8 @@ import (
 
 const RTMP_ADDRESS = "rtmp://nginx-rtmp:1935/stream/"
 
+//const RTMP_ADDRESS = "rtmp://0.0.0.0:1935/stream/"
+
 type Streamer interface {
 	GetName() string
 	Start() error
@@ -95,8 +97,6 @@ func (s *Stream) Download(d Downloader) {
 func (s *Stream) runCommand(c []string) {
 	s.Logger.InfoLogger.Printf("starting, stream %s\n", s.Name)
 	s.command = exec.Command("ffmpeg", c...)
-	//s.command.Stdout = os.Stdout
-	//s.command.Stderr = os.Stderr
 	if err := s.command.Start(); err != nil {
 		s.Logger.ErrorLogger.Printf("cant start download stream, stream %v, error %v\n", s.Name, err.Error())
 		s.stopCommand()
