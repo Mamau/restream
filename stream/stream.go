@@ -116,7 +116,7 @@ func (s *Stream) Stop() {
 	if s.IsStarted {
 		s.stopCommand()
 	}
-	s.Logger.ErrorLogger.Printf("stream %s is not started o.0", s.Name)
+	s.Logger.ErrorLogger.Printf("stopped stream %s is not started o.0", s.Name)
 }
 
 func (s *Stream) Download(d Downloader) {
