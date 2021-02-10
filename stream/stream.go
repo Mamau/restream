@@ -8,6 +8,7 @@ import (
 	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
+	"net/http"
 	"os"
 	"os/exec"
 	"syscall"
@@ -140,6 +141,40 @@ func (s *Stream) runCommand(c []string) {
 		return
 	}
 	s.IsStarted = true
+
+	ticker := time.NewTicker(60 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				s.isManifestAvailable(ticker)
+			}
+		}
+	}()
+}
+
+func (s *Stream) isManifestAvailable(t *time.Ticker) {
+	resp, err := http.Get(s.Manifest)
+	if err != nil {
+		s.Logger.ErrorLogger.Printf("cant health check manifest file, error: %s\n", err.Error())
+		return
+	}
+
+	if isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices; !isOk {
+		s.Logger.ErrorLogger.Println("manifest is not available %v")
+		t.Stop()
+		s.Restart()
+		return
+	}
+	s.Logger.InfoLogger.Printf("stream %s is ok \n", s.Name)
+}
+
+func (s *Stream) Restart() {
+	s.Logger.InfoLogger.Printf("restart stream %s \n", s.Name)
+	s.Stop()
+	if err := s.StartViaSelenium(true); err != nil {
+		s.Logger.FatalLogger.Printf("cant restart stream %s, err: %s\n", s.Name, err.Error())
+	}
 }
 
 func (s *Stream) stopCommand() {
