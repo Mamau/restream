@@ -14,3 +14,11 @@ bc: ## Build and copy to server.
 build-image: ## Build docker image
 	docker build -t mamau/restream:latest .
 	docker push mamau/restream
+
+up: ## Start project
+	docker-compose up -d
+
+up-fresh: ## Start project
+	docker-compose down
+	make build-image
+	docker-compose up

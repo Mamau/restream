@@ -2,6 +2,8 @@ version: '3.7'
 
 services:
   restream:
+    environment:
+      TZ: ${TZ}
     container_name: restream
     restart: always
     image: mamau/restream:latest
