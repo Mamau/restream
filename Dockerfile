@@ -14,5 +14,6 @@ FROM ubuntu
 RUN apt-get update && apt-get install -y ffmpeg
 
 COPY --from=builder /app/bin/restream /home/app/restream
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENTRYPOINT ["/home/app/restream"]
