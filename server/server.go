@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 	"github.com/mamau/restream/routes/api/v1"
 	"github.com/mamau/restream/stream/scheduler"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
@@ -18,11 +18,17 @@ import (
 func newRouter() http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.Timeout(60 * time.Second))
+	//router.Use(middleware.RealIP)
+	//router.Use(middleware.Logger)
+	//router.Use(middleware.Recoverer)
+	//router.Use(middleware.Timeout(60 * time.Second))
 	//router.Use(apiMiddleware.IsNginxRestreamRunning)
+
+	router.HandleFunc("/debug/pprof/*", pprof.Index)
+	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	router.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	router.Mount("/api/v1/", v1.NewRouter())
 
@@ -32,11 +38,11 @@ func newRouter() http.Handler {
 func Start() {
 	handler := newRouter()
 	srv := &http.Server{
-		Addr:         ":8089",
-		Handler:      handler,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:    ":8089",
+		Handler: handler,
+		//ReadTimeout:  5 * time.Second,
+		//WriteTimeout: 10 * time.Second,
+		//IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {
