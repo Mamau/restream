@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/mpeg"
-	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -38,14 +37,12 @@ func (s *ScheduledStream) ScheduleDownload() error {
 
 	pwd, err := os.Getwd()
 	if err != nil {
-		s.Logger.ErrorLogger.Println("cant get current directory")
 		return errors.New("cant get current directory")
 	}
 	st := time.Unix(s.StartAt, 10).Format(formatFolder)
 	sp := time.Unix(s.StopAt, 10).Format(formatFolder)
 
 	if err := stream.GetLive().SetStream(s); err != nil {
-		s.Logger.ErrorLogger.Printf("cant schedule stream, stream %s, error %s", s.Name, err.Error())
 		return err
 	}
 
@@ -54,7 +51,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	if strings.Contains(s.Manifest, ".mpd") {
 		url4eg, err := url.Parse(s.Manifest)
 		if err != nil {
-			log.Fatalf("err creating url %v\n", err)
+			s.Logger.Fatal(err)
 		}
 		downloader = mpeg.NewMpegDash(s.Name, folder, url4eg)
 	} else {
@@ -62,7 +59,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	}
 	downloader.SetDeadline(s.StopAt)
 
-	s.Logger.InfoLogger.Printf("stream scheduled download, startAfter: %s stopAfter: %s \n",
+	s.Logger.Info("stream scheduled download, startAfter: %s stopAfter: %s \n",
 		time.Unix(s.StartAt, 10).Format(format), time.Unix(s.StopAt, 10).Format(format))
 
 	time.AfterFunc(time.Duration(startAfter)*time.Second, func() { s.Download(downloader) })
