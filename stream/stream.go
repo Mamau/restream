@@ -142,6 +142,10 @@ func (s *Stream) runCommand(c []string) {
 		for {
 			select {
 			case <-ticker.C:
+				if s.IsStarted == false {
+					ticker.Stop()
+					return
+				}
 				s.isManifestAvailable(ticker)
 			}
 		}
@@ -156,7 +160,7 @@ func (s *Stream) isManifestAvailable(t *time.Ticker) {
 	}
 
 	if isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices; !isOk {
-		s.Logger.Warning("-----manifest is not available %s -----\n", s.Manifest)
+		s.Logger.Warning("manifest is not available %s\n", s.Manifest)
 		t.Stop()
 		s.Restart()
 		return
@@ -165,8 +169,15 @@ func (s *Stream) isManifestAvailable(t *time.Ticker) {
 
 func (s *Stream) Restart() {
 	s.Logger.Info("restart stream %s \n", s.Name)
+	deadLine := s.deadLine
 	s.Stop()
-	if err := s.StartViaSelenium(true); err != nil {
+
+	hasDeadline := false
+	if deadLine != nil {
+		hasDeadline = true
+	}
+
+	if err := s.StartViaSelenium(hasDeadline); err != nil {
 		s.Logger.Fatal(err)
 	}
 }
