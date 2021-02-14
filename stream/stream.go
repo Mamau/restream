@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
@@ -43,8 +42,9 @@ type Stream struct {
 }
 
 func NewStream() *Stream {
-	s := &Stream{}
-	s.setLogger()
+	s := &Stream{
+		Logger: storage.NewStreamLogger(),
+	}
 	return s
 }
 
@@ -54,11 +54,6 @@ func (s *Stream) GetName() string {
 
 func (s *Stream) SetDeadline(deadLine *time.Time) {
 	s.deadLine = deadLine
-}
-
-func (s *Stream) setLogger() {
-	folder := fmt.Sprintf("%v/%v", helpers.CurrentDir(), "storage/logs")
-	s.Logger = storage.NewStreamLogger(folder, s.Name)
 }
 
 func (s *Stream) Start() error {
@@ -95,7 +90,7 @@ func (s *Stream) StartWithDeadLine() error {
 
 func (s *Stream) StartViaSelenium(withDeadline bool) error {
 	if err := s.fetchManifest(); err != nil {
-		s.Logger.FatalLogger.Printf("cant fetch manifest via selenium %s\n", s.Name)
+		s.Logger.Warning("cant fetch manifest via selenium %s\n", s.Name)
 	}
 
 	if withDeadline {
@@ -117,7 +112,7 @@ func (s *Stream) Stop() {
 	if s.IsStarted {
 		s.stopCommand()
 	}
-	s.Logger.ErrorLogger.Printf("stopped stream %s is not started o.0", s.Name)
+	s.Logger.Warning("stopped stream %s is not started o.0", s.Name)
 }
 
 func (s *Stream) Download(d Downloader) {
@@ -127,16 +122,16 @@ func (s *Stream) Download(d Downloader) {
 	s.IsStarted = true
 	d.Start()
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
-		s.Logger.ErrorLogger.Printf("cant delete stream, stream %v, error %v\n", s.Name, err.Error())
+		s.Logger.Error(err)
 		return
 	}
 }
 
 func (s *Stream) runCommand(c []string) {
-	s.Logger.InfoLogger.Printf("starting, stream %s\n", s.Name)
+	s.Logger.Info("starting, stream %s\n", s.Name)
 	s.command = exec.Command("ffmpeg", c...)
 	if err := s.command.Start(); err != nil {
-		s.Logger.ErrorLogger.Printf("cant start download stream, stream %v, error %v\n", s.Name, err.Error())
+		s.Logger.Error(err)
 		s.stopCommand()
 		return
 	}
@@ -156,51 +151,47 @@ func (s *Stream) runCommand(c []string) {
 func (s *Stream) isManifestAvailable(t *time.Ticker) {
 	resp, err := http.Get(s.Manifest)
 	if err != nil {
-		fmt.Printf("-----cant health check manifest file, error: %s\n", err.Error())
-		s.Logger.ErrorLogger.Printf("cant health check manifest file, error: %s\n", err.Error())
+		s.Logger.Error(err)
 		return
 	}
 
 	if isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices; !isOk {
-		fmt.Printf("-----manifest is not available %s -----\n", s.Manifest)
+		s.Logger.Warning("-----manifest is not available %s -----\n", s.Manifest)
 		t.Stop()
 		s.Restart()
 		return
 	}
-
-	fmt.Printf("-----stream %s is ok -----\n", s.Name)
 }
 
 func (s *Stream) Restart() {
-	fmt.Printf("restart stream %s \n", s.Name)
+	s.Logger.Info("restart stream %s \n", s.Name)
 	s.Stop()
 	if err := s.StartViaSelenium(true); err != nil {
-		s.Logger.FatalLogger.Printf("cant restart stream %s, err: %s\n", s.Name, err.Error())
+		s.Logger.Fatal(err)
 	}
 }
 
 func (s *Stream) stopCommand() {
-	s.Logger.InfoLogger.Printf("stopping command..., PID %v, stream %v cmd %s\n", s.command.Process.Pid, s.Name, s.command.String())
+	s.Logger.Info("stopping command..., PID %v, stream %v cmd %s\n", s.command.Process.Pid, s.Name, s.command.String())
 
 	if _, err := GetLive().DeleteStream(s.Name); err != nil {
-		s.Logger.ErrorLogger.Printf("cant delete stream, stream %v cmd %s\n", s.Name, err.Error())
+		s.Logger.Error(err)
 		return
 	}
 
 	if err := s.command.Process.Signal(syscall.SIGINT); err != nil {
-		s.Logger.ErrorLogger.Printf("cant stop process, stream %v, PID %v cmd %s\n", s.Name, s.command.Process.Pid, err.Error())
-		s.Logger.InfoLogger.Println("lets kill it")
+		s.Logger.Error(err)
 		if err := s.command.Process.Kill(); err != nil {
-			s.Logger.FatalLogger.Printf("cant kill process, stream %v, PID %v cmd %s\n", s.Name, s.command.Process.Pid, err.Error())
+			s.Logger.Fatal(err)
 		}
 		return
 	}
 
 	if _, err := s.command.Process.Wait(); err != nil {
-		s.Logger.FatalLogger.Printf("cant wait process, stream %v, PID %v cmd %s\n", s.Name, s.command.Process.Pid, err.Error())
+		s.Logger.Fatal(err)
 	}
 
-	s.Logger.InfoLogger.Printf("command stopped stream %s\n", s.Name)
+	s.Logger.Info("command stopped stream %s\n", s.Name)
 }
 
 func (s *Stream) getStreamAddress() string {

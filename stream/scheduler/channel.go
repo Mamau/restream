@@ -34,7 +34,7 @@ func (c *Channel) scheduleChannel() {
 		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
 			c.Stream.SetDeadline(&v.StopAt)
 			if err := c.Stream.StartViaSelenium(true); err != nil {
-				c.Stream.Logger.FatalLogger.Fatalf("cant start via selenium %s, err: %s\n", c.Stream.Name, err.Error())
+				c.Stream.Logger.Fatal(err)
 			}
 		})
 	}
@@ -59,12 +59,12 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 
 	start, err := time.Parse(format, startAt)
 	if err != nil {
-		c.Stream.Logger.FatalLogger.Fatalf("cant parse time %s\n", err.Error())
+		c.Stream.Logger.Fatal(err)
 	}
 
 	stop, err := time.Parse(format, stopAt)
 	if err != nil {
-		c.Stream.Logger.FatalLogger.Fatalf("cant parse time %s\n", err.Error())
+		c.Stream.Logger.Fatal(err)
 	}
 
 	if start.After(stop) {
@@ -80,11 +80,11 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 func (c *Channel) startStream() {
 	manifest, err := selenium.GetManifest(channel.Channel(c.Stream.Name))
 	if err != nil {
-		c.Stream.Logger.FatalLogger.Fatalf("cant start selenium %s\n", err.Error())
+		c.Stream.Logger.Fatal(err)
 	}
 
 	c.Stream.Manifest = manifest
 	if err := c.Stream.Start(); err != nil {
-		c.Stream.Logger.FatalLogger.Fatalf("cant start stream %s\n", err.Error())
+		c.Stream.Logger.Fatal(err)
 	}
 }

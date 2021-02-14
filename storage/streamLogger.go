@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"github.com/getsentry/sentry-go"
 	"log"
 	"os"
 )
@@ -9,46 +10,60 @@ import (
 type LogType string
 
 const (
-	INFO  LogType = "info"
-	ERROR LogType = "err"
+	INFO    LogType = "INFO"
+	WARNING LogType = "WARNING"
+	FATAL   LogType = "FATAL"
+	ERROR   LogType = "ERROR"
 )
 
 type StreamLogger struct {
-	WarningLogger *log.Logger
-	InfoLogger    *log.Logger
-	ErrorLogger   *log.Logger
-	FatalLogger   *log.Logger
+	warningLogger *log.Logger
+	infoLogger    *log.Logger
+	errorLogger   *log.Logger
+	fatalLogger   *log.Logger
 }
 
-func NewStreamLogger(folder, name string) *StreamLogger {
-	s := StreamLogger{}
-	s.initLogger(folder, name)
-	return &s
+func NewStreamLogger() *StreamLogger {
+	return &StreamLogger{
+		infoLogger:    log.New(os.Stdout, fmt.Sprintf("[%s]: ", INFO), log.Ldate|log.Ltime),
+		warningLogger: log.New(os.Stdout, fmt.Sprintf("[%s]: ", WARNING), log.Ldate|log.Ltime),
+		errorLogger:   log.New(os.Stderr, fmt.Sprintf("[%s]: ", ERROR), log.Ldate|log.Ltime),
+		fatalLogger:   log.New(os.Stderr, fmt.Sprintf("[%s]: ", FATAL), log.Ldate|log.Ltime),
+	}
 }
 
-func (s *StreamLogger) initLogger(folder, name string) {
-	fullFolderName := fmt.Sprintf("%s/%s", folder, name)
-	if err := os.MkdirAll(fullFolderName, os.ModePerm); err != nil {
-		log.Fatalf("cant create folder %s\n", fullFolderName)
-	}
+func (l *StreamLogger) Info(format string, v ...interface{}) {
+	message := fmt.Sprintf(format, v...)
+	l.infoLogger.Println(message)
 
-	folders := map[LogType]string{
-		INFO:  fmt.Sprintf("%s/%s", fullFolderName, INFO),
-		ERROR: fmt.Sprintf("%s/%s", fullFolderName, ERROR),
-	}
+	sentry.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetLevel(sentry.LevelInfo)
+	})
+	sentry.CaptureMessage(message)
+}
 
-	createdFolders := map[LogType]*os.File{}
+func (l *StreamLogger) Warning(format string, v ...interface{}) {
+	message := fmt.Sprintf(format, v...)
+	l.warningLogger.Println(message)
 
-	for k, v := range folders {
-		file, err := os.OpenFile(fmt.Sprintf("%s_log.txt", v), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
-		if err != nil {
-			log.Fatal(err)
-		}
-		createdFolders[k] = file
-	}
+	sentry.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetLevel(sentry.LevelWarning)
+	})
+	sentry.CaptureMessage(message)
+}
 
-	s.InfoLogger = log.New(createdFolders[INFO], "INFO: ", log.Ldate|log.Ltime)
-	s.WarningLogger = log.New(createdFolders[ERROR], "WARNING: ", log.Ldate|log.Ltime)
-	s.ErrorLogger = log.New(createdFolders[ERROR], "ERROR: ", log.Ldate|log.Ltime)
-	s.FatalLogger = log.New(createdFolders[ERROR], "FATAL: ", log.Ldate|log.Ltime)
+func (l *StreamLogger) Error(e error) {
+	l.errorLogger.Println(e.Error())
+	sentry.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetLevel(sentry.LevelError)
+	})
+	sentry.CaptureException(e)
+}
+
+func (l *StreamLogger) Fatal(e error) {
+	l.fatalLogger.Println(e.Error())
+	sentry.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetLevel(sentry.LevelFatal)
+	})
+	sentry.CaptureException(e)
 }

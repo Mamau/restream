@@ -3,6 +3,7 @@ module github.com/mamau/restream
 go 1.14
 
 require (
+	github.com/getsentry/sentry-go v0.9.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/rk/go-cron v0.0.0-20200210175235-e0dd106ca134
 	github.com/tebeka/selenium v0.9.9
