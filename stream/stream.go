@@ -20,7 +20,7 @@ const RTMP_ADDRESS = "rtmp://nginx-rtmp:1935/stream/"
 
 type Streamer interface {
 	GetName() string
-	Start() error
+	Start() bool
 	Stop()
 	Download(Downloader)
 }
@@ -56,42 +56,48 @@ func (s *Stream) SetDeadline(deadLine *time.Time) {
 	s.deadLine = deadLine
 }
 
-func (s *Stream) Start() error {
+func (s *Stream) Start() bool {
 	if s.IsStarted {
-		return errors.New(fmt.Sprintf("stream %v already started\n", s.Name))
+		s.Logger.Warning(fmt.Sprintf("stream %v already started\n", s.Name))
+		return false
 	}
 
 	if s.Manifest == "" {
-		return errors.New(fmt.Sprintf("no manifest file at stream: %s \n", s.Name))
+		s.Logger.Error(errors.New(fmt.Sprintf("no manifest file at stream: %s \n", s.Name)))
+		return false
 	}
 
 	if err := GetLive().SetStream(s); err != nil {
-		return err
+		s.Logger.Error(err)
+		return false
 	}
 
 	go s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
-	return nil
+	return true
 }
 
-func (s *Stream) StartWithDeadLine() error {
+func (s *Stream) StartWithDeadLine() bool {
 	if s.deadLine == nil {
-		return errors.New(fmt.Sprintf("need set deadline"))
-	}
-	if err := s.Start(); err != nil {
-		return errors.New(fmt.Sprintf("cant start stream %s with deadline, err: %s\n", s.Name, err.Error()))
+		s.Logger.Fatal(errors.New(fmt.Sprintf("need set deadline")))
+		return false
 	}
 
-	end := s.deadLine.Unix() - time.Now().Unix()
-	time.AfterFunc(time.Duration(end)*time.Second, func() {
-		s.Stop()
-	})
-	return nil
+	isStated := s.Start()
+
+	if isStated {
+		end := s.deadLine.Unix() - time.Now().Unix()
+
+		duration := time.Duration(end) * time.Second
+		s.Logger.Info(fmt.Sprintf("stop after %v, deadline Unix :%v, now unix: %v\n", duration, s.deadLine.Unix(), time.Now().Unix()))
+
+		time.AfterFunc(duration, s.Stop)
+	}
+
+	return isStated
 }
 
-func (s *Stream) StartViaSelenium(withDeadline bool) error {
-	if err := s.fetchManifest(); err != nil {
-		s.Logger.Warning("cant fetch manifest via selenium %s\n", s.Name)
-	}
+func (s *Stream) StartViaSelenium(withDeadline bool) bool {
+	s.fetchManifest()
 
 	if withDeadline {
 		return s.StartWithDeadLine()
@@ -99,13 +105,12 @@ func (s *Stream) StartViaSelenium(withDeadline bool) error {
 	return s.Start()
 }
 
-func (s *Stream) fetchManifest() error {
+func (s *Stream) fetchManifest() {
 	manifest, err := selenium.GetManifest(channel.Channel(s.Name))
 	if err != nil {
-		return err
+		s.Logger.Fatal(errors.New(fmt.Sprintf("cant fetch manifest via selenium %s, err: %s\n", s.Name, err.Error())))
 	}
 	s.Manifest = manifest
-	return nil
 }
 
 func (s *Stream) Stop() {
@@ -177,9 +182,7 @@ func (s *Stream) Restart() {
 		hasDeadline = true
 	}
 
-	if err := s.StartViaSelenium(hasDeadline); err != nil {
-		s.Logger.Fatal(err)
-	}
+	s.StartViaSelenium(hasDeadline)
 }
 
 func (s *Stream) stopCommand() {

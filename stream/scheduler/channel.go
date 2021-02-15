@@ -33,9 +33,7 @@ func (c *Channel) scheduleChannel() {
 	for _, v := range c.TimeTables {
 		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
 			c.Stream.SetDeadline(&v.StopAt)
-			if err := c.Stream.StartViaSelenium(true); err != nil {
-				c.Stream.Logger.Fatal(err)
-			}
+			c.Stream.StartViaSelenium(true)
 		})
 	}
 }
@@ -84,7 +82,5 @@ func (c *Channel) startStream() {
 	}
 
 	c.Stream.Manifest = manifest
-	if err := c.Stream.Start(); err != nil {
-		c.Stream.Logger.Fatal(err)
-	}
+	c.Stream.Start()
 }

@@ -20,8 +20,8 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := strm.Start(); err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
+	if !strm.Start() {
+		response.Json(w, "error while starting", http.StatusBadRequest)
 		return
 	}
 	response.Json(w, "Stream starting...", http.StatusOK)
@@ -33,8 +33,8 @@ func startChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := strm.StartViaSelenium(false); err != nil {
-		response.Json(w, err.Error(), http.StatusBadRequest)
+	if !strm.StartViaSelenium(false) {
+		response.Json(w, "error while starting channel", http.StatusBadRequest)
 		return
 	}
 

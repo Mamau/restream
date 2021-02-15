@@ -12,7 +12,7 @@ func main() {
 		Debug: true,
 	})
 	if err != nil {
-		log.Println("sentry.Init: %s", err)
+		log.Printf("sentry.Init: %s\n", err)
 	}
 
 	server.Start()
