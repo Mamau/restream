@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func FetchTntManifest(wd selenium.WebDriver) string {
+func FetchTntManifest(wd selenium.WebDriver, pattern string) string {
 	fmt.Printf("-----go to %s site-----\n", channel.ChUrls[channel.TNT])
 	if err := wd.Get(channel.ChUrls[channel.TNT]); err != nil {
 		log.Fatalf("error while fetch url: %v", err)
@@ -35,14 +35,46 @@ func FetchTntManifest(wd selenium.WebDriver) string {
 	}
 	fmt.Println("-----wait 5 sec-----")
 	time.Sleep(time.Second * 5)
+	//makeScreenshot(wd, channel.TNT)
 
 	fmt.Println("-----searching manifest-----")
-	link, err := findSourceAtLogs(wd, `https:\/\/live(.)+(\.m3u8)`)
+	if pattern == "" {
+		pattern = `https:\/\/live(.)+(\.m3u8)`
+	}
+
+	link, err := findSourceAtLogs(wd, pattern)
 	if err != nil {
 		fmt.Println(err)
-		link = FetchTntManifest(wd)
+		link = FetchTntManifest(wd, `https:\/\/matchtv(.)+(\.m3u8)`)
 	}
 	fmt.Println("-----got link-----")
 
 	return link
+}
+
+type Pattern struct {
+	pattern string
+	attempt int
+}
+
+func getPattern() *Pattern {
+	var list []*Pattern
+	pattern1 := &Pattern{
+		pattern: `https:\/\/live(.)+(\.m3u8)`,
+		attempt: 0,
+	}
+	pattern2 := &Pattern{
+		pattern: `https:\/\/matchtv(.)+(\.m3u8)`,
+		attempt: 0,
+	}
+	list = append(list, pattern1, pattern2)
+
+	needle := &Pattern{attempt: 0}
+	for _, v := range list {
+		if needle.attempt <= v.attempt {
+			continue
+		}
+		needle = v
+	}
+	return needle
 }

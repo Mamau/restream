@@ -56,7 +56,7 @@ func GetManifest(ch channel.Channel) (string, error) {
 
 	switch ch {
 	case channel.TNT:
-		return strategy.FetchTntManifest(wd), nil
+		return strategy.FetchTntManifest(wd, ""), nil
 	case channel.FIRST:
 		return strategy.Fetch1tvManifest(wd), nil
 	case channel.MATCH:
