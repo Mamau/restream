@@ -75,7 +75,7 @@ func (m *MpegDash) fetchChunk(f fileType, fl *os.File) {
 		if err := m.downloadFilePart(urlVideo, fl); err != nil {
 			m.media.DecrementByType(f)
 		} else {
-			m.logger.Info("Get chunk:", currentMediaChunk, "...")
+			fmt.Println("Get chunk:", currentMediaChunk, "...")
 			m.chunksVideo = m.collectorChunks(m.chunksVideo, currentMediaChunk)
 		}
 	}
@@ -238,7 +238,7 @@ func (m *MpegDash) downloadFilePart(fullUrl string, f *os.File) error {
 	}()
 
 	if resp.StatusCode == 404 {
-		m.logger.Info("HTTP Response Status:", resp.StatusCode, http.StatusText(resp.StatusCode))
+		fmt.Println("HTTP Response Status:", resp.StatusCode, http.StatusText(resp.StatusCode))
 		return errors.New("not found chunk")
 	}
 
