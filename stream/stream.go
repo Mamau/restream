@@ -77,6 +77,11 @@ func (s *Stream) Start() bool {
 }
 
 func (s *Stream) StartWithDeadLine() bool {
+	if s.IsStarted {
+		s.Logger.Warning(fmt.Sprintf("stream %v already started\n", s.Name))
+		return false
+	}
+
 	if s.deadLine == nil {
 		s.Logger.Fatal(errors.New(fmt.Sprintf("need set deadline")))
 		return false
@@ -85,6 +90,10 @@ func (s *Stream) StartWithDeadLine() bool {
 	isStated := s.Start()
 
 	if isStated {
+		if s.deadLine.Unix() < time.Now().Unix() {
+			s.Logger.Warning("why u have deadline less than now time?")
+		}
+
 		end := s.deadLine.Unix() - time.Now().Unix()
 
 		duration := time.Duration(end) * time.Second
