@@ -123,10 +123,11 @@ func (s *Stream) fetchManifest() {
 }
 
 func (s *Stream) Stop() {
-	if s.IsStarted {
-		s.stopCommand()
+	if !s.IsStarted {
+		s.Logger.Warning("stopped stream %s is not started o.0", s.Name)
+		return
 	}
-	s.Logger.Warning("stopped stream %s is not started o.0", s.Name)
+	s.stopCommand()
 }
 
 func (s *Stream) Download(d Downloader) {
