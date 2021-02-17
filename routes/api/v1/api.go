@@ -27,6 +27,24 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 	response.Json(w, "Stream starting...", http.StatusOK)
 }
 
+func streamRestart(w http.ResponseWriter, r *http.Request) {
+	type dataStream struct {
+		Name string
+	}
+	var ds dataStream
+
+	if err := helpers.JsonRequestToMap(r, &ds); err != nil {
+		log.Printf("error while parse request stream: %s, error: %s\n", ds.Name, err.Error())
+		response.Json(w, "error while parse request", http.StatusBadRequest)
+		return
+	}
+
+	if strm, err := stream.GetLive().GetStream(ds.Name); err == nil {
+		strm.Restart()
+		response.Json(w, "Stream restarting...", http.StatusOK)
+	}
+}
+
 func startChannel(w http.ResponseWriter, r *http.Request) {
 	var strm = stream.NewStream()
 	if !validator.Validate(w, r, &contraints.ChannelStart{Stream: strm}) {
@@ -90,6 +108,7 @@ func NewRouter() http.Handler {
 	r.Post("/stream-start", streamStart)
 	r.Post("/start-channel", startChannel)
 	r.Post("/stream-stop", streamStop)
+	r.Post("/stream-restart", streamRestart)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
 

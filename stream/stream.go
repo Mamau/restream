@@ -23,6 +23,7 @@ type Streamer interface {
 	Start() bool
 	Stop()
 	Download(Downloader)
+	Restart()
 }
 
 type Downloader interface {
@@ -216,6 +217,7 @@ func (s *Stream) stopCommand() {
 		s.Logger.Fatal(err)
 	}
 
+	s.IsStarted = false
 	s.Logger.Info("command stopped stream %s\n", s.Name)
 }
 
