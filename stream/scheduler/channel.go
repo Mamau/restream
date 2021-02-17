@@ -32,7 +32,7 @@ func CreateScheduledChannel(chName channel.Channel) *Channel {
 func (c *Channel) scheduleChannel() {
 	for _, v := range c.TimeTables {
 		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
-			c.Stream.SetDeadline(&v.StopAt)
+			c.Stream.DeadLine = &v.StopAt
 			c.Stream.StartViaSelenium(true)
 		})
 	}

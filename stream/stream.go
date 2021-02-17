@@ -36,7 +36,7 @@ type Stream struct {
 	Manifest  string `json:"manifest"`
 	Name      string `json:"name"`
 	logPath   *os.File
-	deadLine  *time.Time
+	DeadLine  *time.Time
 	command   *exec.Cmd
 	Logger    *storage.StreamLogger
 }
@@ -50,10 +50,6 @@ func NewStream() *Stream {
 
 func (s *Stream) GetName() string {
 	return s.Name
-}
-
-func (s *Stream) SetDeadline(deadLine *time.Time) {
-	s.deadLine = deadLine
 }
 
 func (s *Stream) Start() bool {
@@ -82,7 +78,7 @@ func (s *Stream) StartWithDeadLine() bool {
 		return false
 	}
 
-	if s.deadLine == nil {
+	if s.DeadLine == nil {
 		s.Logger.Fatal(errors.New(fmt.Sprintf("need set deadline")))
 		return false
 	}
@@ -90,14 +86,14 @@ func (s *Stream) StartWithDeadLine() bool {
 	isStated := s.Start()
 
 	if isStated {
-		if s.deadLine.Unix() < time.Now().Unix() {
+		if s.DeadLine.Unix() < time.Now().Unix() {
 			s.Logger.Warning("why u have deadline less than now time?")
 		}
 
-		end := s.deadLine.Unix() - time.Now().Unix()
+		end := s.DeadLine.Unix() - time.Now().Unix()
 
 		duration := time.Duration(end) * time.Second
-		s.Logger.Info(fmt.Sprintf("stop after %v, deadline Unix :%v, now unix: %v\n", duration, s.deadLine.Unix(), time.Now().Unix()))
+		s.Logger.Info(fmt.Sprintf("stop after %v, deadline Unix :%v, now unix: %v\n", duration, s.DeadLine.Unix(), time.Now().Unix()))
 
 		time.AfterFunc(duration, s.Stop)
 	}
@@ -106,20 +102,17 @@ func (s *Stream) StartWithDeadLine() bool {
 }
 
 func (s *Stream) StartViaSelenium(withDeadline bool) bool {
-	s.fetchManifest()
+	manifest, err := selenium.GetManifest(channel.Channel(s.Name))
+	if err != nil {
+		s.Logger.Fatal(errors.New(fmt.Sprintf("cant fetch manifest via selenium %s, err: %s\n", s.Name, err.Error())))
+	}
+
+	s.Manifest = manifest
 
 	if withDeadline {
 		return s.StartWithDeadLine()
 	}
 	return s.Start()
-}
-
-func (s *Stream) fetchManifest() {
-	manifest, err := selenium.GetManifest(channel.Channel(s.Name))
-	if err != nil {
-		s.Logger.Fatal(errors.New(fmt.Sprintf("cant fetch manifest via selenium %s, err: %s\n", s.Name, err.Error())))
-	}
-	s.Manifest = manifest
 }
 
 func (s *Stream) Stop() {
@@ -184,11 +177,19 @@ func (s *Stream) isManifestAvailable(t *time.Ticker) {
 
 func (s *Stream) Restart() {
 	s.Logger.Info("restart stream %s \n", s.Name)
-	deadLine := s.deadLine
+	deadLine := s.DeadLine
 	s.Stop()
 
 	hasDeadline := false
 	if deadLine != nil {
+		t := time.Now()
+		if s.DeadLine.Before(time.Now()) {
+			t = t.Add(time.Hour * 24)
+		}
+
+		stop := time.Date(t.Year(), t.Month(), t.Day(), s.DeadLine.Hour(), s.DeadLine.Minute(), s.DeadLine.Second(), 0, time.UTC)
+
+		s.DeadLine = &stop
 		hasDeadline = true
 	}
 
