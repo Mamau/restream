@@ -51,6 +51,9 @@ func startChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//t := time.Now()
+	//stop := time.Date(t.Year(), t.Month(), t.Day(), 17, 0, 0, 0, time.UTC)
+	//strm.DeadLine = &stop
 	if !strm.StartViaSelenium(false) {
 		response.Json(w, "error while starting channel", http.StatusBadRequest)
 		return

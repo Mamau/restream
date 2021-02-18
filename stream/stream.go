@@ -178,18 +178,17 @@ func (s *Stream) isManifestAvailable(t *time.Ticker) {
 
 func (s *Stream) Restart() {
 	s.Logger.Info("restart stream %s \n", s.Name)
-	deadLine := s.DeadLine
 	s.Stop()
 
 	hasDeadline := false
-	if deadLine != nil {
+	if s.DeadLine != nil {
 		t := time.Now()
 		if s.DeadLine.Before(time.Now()) {
 			t = t.Add(time.Hour * 24)
 		}
 
 		stop := time.Date(t.Year(), t.Month(), t.Day(), s.DeadLine.Hour(), s.DeadLine.Minute(), s.DeadLine.Second(), 0, time.UTC)
-
+		s.Logger.Info("set new deadline %v", stop.Unix())
 		s.DeadLine = &stop
 		hasDeadline = true
 	}
