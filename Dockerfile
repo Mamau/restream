@@ -10,7 +10,7 @@ RUN go mod download
 COPY . .
 RUN make build
 
-FROM jrottenberg/ffmpeg:3.3-alpine
+FROM jrottenberg/ffmpeg:4.3-alpine
 RUN apk update && \
     apk add --no-cache tzdata
 
