@@ -14,10 +14,6 @@ import (
 	"time"
 )
 
-const RTMP_ADDRESS = "rtmp://nginx-rtmp:1935/stream/"
-
-//const RTMP_ADDRESS = "rtmp://0.0.0.0:1935/stream/"
-
 type Streamer interface {
 	GetName() string
 	Start() bool
@@ -33,13 +29,14 @@ type Downloader interface {
 }
 
 type Stream struct {
-	IsStarted bool
-	Manifest  string `json:"manifest"`
-	Name      string `json:"name"`
-	logPath   *os.File
-	DeadLine  *time.Time
-	command   *exec.Cmd
-	Logger    *storage.StreamLogger
+	IsStarted     bool
+	Manifest      string `json:"manifest"`
+	Name          string `json:"name"`
+	logPath       *os.File
+	DeadLine      *time.Time
+	command       *exec.Cmd
+	Logger        *storage.StreamLogger
+	afterDeadline *time.Timer
 }
 
 func NewStream() *Stream {
@@ -94,9 +91,10 @@ func (s *Stream) StartWithDeadLine() bool {
 		end := s.DeadLine.Unix() - time.Now().Unix()
 
 		duration := time.Duration(end) * time.Second
-		s.Logger.Info(fmt.Sprintf("stop after %v, deadline Unix :%v, now unix: %v\n", duration, s.DeadLine.Unix(), time.Now().Unix()))
+		format := "15:04:05 02.01.2006"
+		s.Logger.Info(fmt.Sprintf("stop after %v, deadline :%v, now: %v\n", duration, s.DeadLine.Format(format), time.Now().Format(format)))
 
-		time.AfterFunc(duration, s.Stop)
+		s.afterDeadline = time.AfterFunc(duration, s.Stop)
 	}
 
 	return isStated
@@ -190,6 +188,7 @@ func (s *Stream) Restart() {
 		stop := time.Date(t.Year(), t.Month(), t.Day(), s.DeadLine.Hour(), s.DeadLine.Minute(), s.DeadLine.Second(), 0, time.UTC)
 		s.Logger.Info("set new deadline %v", stop.Unix())
 		s.DeadLine = &stop
+		s.afterDeadline.Reset(time.Duration(stop.Unix()) * time.Second)
 		hasDeadline = true
 	}
 
@@ -222,7 +221,7 @@ func (s *Stream) stopCommand() {
 
 func (s *Stream) getStreamAddress() string {
 	address := bytes.Buffer{}
-	address.WriteString(RTMP_ADDRESS)
+	address.WriteString(os.Getenv("RTMP_ADDRESS"))
 	address.WriteString(s.Name)
 	return address.String()
 }

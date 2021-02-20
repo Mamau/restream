@@ -1,4 +1,4 @@
-FROM golang as builder
+FROM golang:1.14.2 as builder
 
 ARG CGO_ENABLED=0
 
@@ -10,10 +10,12 @@ RUN go mod download
 COPY . .
 RUN make build
 
-FROM ubuntu
-RUN apt-get update && apt-get install -y ffmpeg
+FROM jrottenberg/ffmpeg:3.3-alpine
+RUN apk update && \
+    apk add --no-cache tzdata
 
-COPY --from=builder /app/bin/restream /home/app/restream
+COPY --from=builder /app/bin/restream /restream
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY example.env /.env
 
-ENTRYPOINT ["/home/app/restream"]
+ENTRYPOINT ["/restream"]

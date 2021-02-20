@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+var list1tv = []*Pattern{
+	&Pattern{
+		Scheme:  `https:\/\/edge(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
+		Attempt: 0,
+	},
+	&Pattern{
+		Scheme:  `https:\/\/cdn2.1internet.tv(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
+		Attempt: 0,
+	},
+}
+
 func Fetch1tvManifest(wd selenium.WebDriver) string {
 	fmt.Printf("-----go to %s site-----\n", channel.ChUrls[channel.FIRST])
 	if err := wd.Get(channel.ChUrls[channel.FIRST]); err != nil {
@@ -17,7 +28,8 @@ func Fetch1tvManifest(wd selenium.WebDriver) string {
 	time.Sleep(time.Second * 3)
 
 	fmt.Println("-----searching manifest-----")
-	link, err := findSourceAtLogs(wd, `https:\/\/edge(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`)
+	link, err := findSourceAtLogs(wd, GetPattern(list1tv).Scheme)
+
 	if err != nil {
 		fmt.Println(err)
 		link = Fetch1tvManifest(wd)

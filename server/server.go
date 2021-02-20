@@ -38,7 +38,7 @@ func newRouter() http.Handler {
 func Start() {
 	handler := newRouter()
 	srv := &http.Server{
-		Addr:    ":8089",
+		Addr:    fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")),
 		Handler: handler,
 		//ReadTimeout:  5 * time.Second,
 		//WriteTimeout: 10 * time.Second,

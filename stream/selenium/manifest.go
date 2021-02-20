@@ -9,6 +9,7 @@ import (
 	"github.com/tebeka/selenium/chrome"
 	seleLog "github.com/tebeka/selenium/log"
 	"log"
+	"os"
 )
 
 type Selenium struct {
@@ -39,8 +40,7 @@ func createWebDriver() (selenium.WebDriver, error) {
 	lg[seleLog.Performance] = seleLog.Info
 	caps.AddLogging(lg)
 
-	return selenium.NewRemote(caps, "http://selenium:4444/wd/hub")
-	//return selenium.NewRemote(caps, "http://0.0.0.0:4444/wd/hub")
+	return selenium.NewRemote(caps, os.Getenv("SELENIUM"))
 }
 
 func GetManifest(ch channel.Channel) (string, error) {
