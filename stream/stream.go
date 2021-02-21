@@ -178,19 +178,7 @@ func (s *Stream) Restart() {
 	s.Logger.Info("restart stream %s \n", s.Name)
 	s.Stop()
 
-	hasDeadline := false
-	if s.DeadLine != nil {
-		t := time.Now()
-		if s.DeadLine.Before(time.Now()) {
-			t = t.Add(time.Hour * 24)
-		}
-
-		stop := time.Date(t.Year(), t.Month(), t.Day(), s.DeadLine.Hour(), s.DeadLine.Minute(), s.DeadLine.Second(), 0, time.UTC)
-		s.Logger.Info("set new deadline %v", stop.Unix())
-		s.DeadLine = &stop
-		s.afterDeadline.Reset(time.Duration(stop.Unix()) * time.Second)
-		hasDeadline = true
-	}
+	hasDeadline := s.DeadLine != nil
 
 	s.StartViaSelenium(hasDeadline)
 }
