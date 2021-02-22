@@ -5,6 +5,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"log"
 	"os"
+	"sync"
 )
 
 type LogType string
@@ -23,13 +24,19 @@ type StreamLogger struct {
 	fatalLogger   *log.Logger
 }
 
-func NewStreamLogger() *StreamLogger {
-	return &StreamLogger{
-		infoLogger:    log.New(os.Stdout, fmt.Sprintf("[%s]: ", INFO), log.Ldate|log.Ltime),
-		warningLogger: log.New(os.Stdout, fmt.Sprintf("[%s]: ", WARNING), log.Ldate|log.Ltime),
-		errorLogger:   log.New(os.Stderr, fmt.Sprintf("[%s]: ", ERROR), log.Ldate|log.Ltime),
-		fatalLogger:   log.New(os.Stderr, fmt.Sprintf("[%s]: ", FATAL), log.Ldate|log.Ltime),
-	}
+var once sync.Once
+var instance *StreamLogger
+
+func GetLogger() *StreamLogger {
+	once.Do(func() {
+		instance = &StreamLogger{
+			infoLogger:    log.New(os.Stdout, fmt.Sprintf("[%s]: ", INFO), log.Ldate|log.Ltime),
+			warningLogger: log.New(os.Stdout, fmt.Sprintf("[%s]: ", WARNING), log.Ldate|log.Ltime),
+			errorLogger:   log.New(os.Stderr, fmt.Sprintf("[%s]: ", ERROR), log.Ldate|log.Ltime),
+			fatalLogger:   log.New(os.Stderr, fmt.Sprintf("[%s]: ", FATAL), log.Ldate|log.Ltime),
+		}
+	})
+	return instance
 }
 
 func (l *StreamLogger) Info(format string, v ...interface{}) {

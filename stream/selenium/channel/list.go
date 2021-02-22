@@ -22,3 +22,32 @@ var TimeTable = map[Channel][][]string{
 		{"07:00:00", "10:30:00"},
 	},
 }
+
+var ChanManifestPatterns = map[Channel][]*Pattern{
+	MATCH: {
+		&Pattern{
+			Scheme:  `https:\/\/live(.)+(\.m3u8)`,
+			Attempt: 0,
+		},
+	},
+	TNT: {
+		&Pattern{
+			Scheme:  `https:\/\/live(.)+(\.m3u8)`,
+			Attempt: 0,
+		},
+		&Pattern{
+			Scheme:  `https:\/\/matchtv(.)+(\.m3u8)`,
+			Attempt: 0,
+		},
+	},
+	FIRST: {
+		&Pattern{
+			Scheme:  `https:\/\/edge(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
+			Attempt: 0,
+		},
+		&Pattern{
+			Scheme:  `https:\/\/cdn2.1internet.tv(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
+			Attempt: 0,
+		},
+	},
+}

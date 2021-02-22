@@ -2,37 +2,25 @@ package strategy
 
 import (
 	"fmt"
+	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/tebeka/selenium"
-	"log"
 	"time"
 )
-
-var list1tv = []*Pattern{
-	&Pattern{
-		Scheme:  `https:\/\/edge(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
-		Attempt: 0,
-	},
-	&Pattern{
-		Scheme:  `https:\/\/cdn2.1internet.tv(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
-		Attempt: 0,
-	},
-}
 
 func Fetch1tvManifest(wd selenium.WebDriver) string {
 	fmt.Printf("-----go to %s site-----\n", channel.ChUrls[channel.FIRST])
 	if err := wd.Get(channel.ChUrls[channel.FIRST]); err != nil {
-		log.Fatalf("error while fetch url: %v", err)
+		storage.GetLogger().Fatal(err)
 	}
 	fmt.Println("-----wait 3 sec-----")
 	time.Sleep(time.Second * 3)
 
 	fmt.Println("-----searching manifest-----")
-	link, err := findSourceAtLogs(wd, GetPattern(list1tv).Scheme)
+	link, err := findSourceAtLogs(wd, channel.ChanManifestPatterns[channel.FIRST])
 
 	if err != nil {
-		fmt.Println(err)
-		link = Fetch1tvManifest(wd)
+		storage.GetLogger().Fatal(err)
 	}
 	fmt.Println("-----got link-----")
 
