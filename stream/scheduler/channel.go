@@ -1,8 +1,8 @@
 package scheduler
 
 import (
+	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream"
-	"github.com/mamau/restream/stream/selenium"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/rk/go-cron"
 	"time"
@@ -57,12 +57,12 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 
 	start, err := time.Parse(format, startAt)
 	if err != nil {
-		c.Stream.Logger.Fatal(err)
+		storage.GetLogger().Fatal(err)
 	}
 
 	stop, err := time.Parse(format, stopAt)
 	if err != nil {
-		c.Stream.Logger.Fatal(err)
+		storage.GetLogger().Fatal(err)
 	}
 
 	if start.After(stop) {
@@ -73,14 +73,4 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 	stop = time.Date(tt.Year(), tt.Month(), tt.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.UTC)
 
 	return &TimeTable{StartAt: start, StopAt: stop}
-}
-
-func (c *Channel) startStream() {
-	manifest, err := selenium.GetManifest(channel.Channel(c.Stream.Name))
-	if err != nil {
-		c.Stream.Logger.Fatal(err)
-	}
-
-	c.Stream.Manifest = manifest
-	c.Stream.Start()
 }

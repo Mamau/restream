@@ -3,6 +3,7 @@ package scheduler
 import (
 	"errors"
 	"fmt"
+	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/mpeg"
 	"net/url"
@@ -51,7 +52,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	if strings.Contains(s.Manifest, ".mpd") {
 		url4eg, err := url.Parse(s.Manifest)
 		if err != nil {
-			s.Logger.Fatal(err)
+			storage.GetLogger().Fatal(err)
 		}
 		downloader = mpeg.NewMpegDash(s.Name, folder, url4eg)
 	} else {
@@ -59,7 +60,7 @@ func (s *ScheduledStream) ScheduleDownload() error {
 	}
 	downloader.SetDeadline(s.StopAt)
 
-	s.Logger.Info("stream scheduled download, startAfter: %s stopAfter: %s \n",
+	storage.GetLogger().Info("stream scheduled download, startAfter: %s stopAfter: %s \n",
 		time.Unix(s.StartAt, 10).Format(format), time.Unix(s.StopAt, 10).Format(format))
 
 	time.AfterFunc(time.Duration(startAfter)*time.Second, func() { s.Download(downloader) })

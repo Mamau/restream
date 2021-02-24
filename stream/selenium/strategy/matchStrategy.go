@@ -2,16 +2,16 @@ package strategy
 
 import (
 	"fmt"
+	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/tebeka/selenium"
-	"log"
 	"time"
 )
 
 func FetchMatchManifest(wd selenium.WebDriver) string {
 	fmt.Printf("-----go to %s site-----\n", channel.ChUrls[channel.MATCH])
 	if err := wd.Get(channel.ChUrls[channel.MATCH]); err != nil {
-		log.Fatalf("error while fetch url: %v", err)
+		storage.GetLogger().Fatal(err)
 	}
 	fmt.Println("-----wait 3 sec-----")
 	time.Sleep(time.Second * 3)
@@ -21,7 +21,7 @@ func FetchMatchManifest(wd selenium.WebDriver) string {
 	elem, err := wd.FindElement(selenium.ByClassName, "video-player")
 
 	if err != nil {
-		log.Fatalf("not found id videoShare")
+		storage.GetLogger().Fatal(err)
 	}
 
 	if err := elem.Click(); err != nil {
@@ -34,10 +34,9 @@ func FetchMatchManifest(wd selenium.WebDriver) string {
 
 	//makeScreenshot(wd, channel.MATCH)
 	fmt.Println("-----search manifest-----")
-	link, err := findSourceAtLogs(wd, `https:\/\/live(.)+(\.m3u8)`)
+	link, err := findSourceAtLogs(wd, channel.ChanManifestPatterns[channel.MATCH])
 	if err != nil {
-		fmt.Println(err)
-		link = FetchMatchManifest(wd)
+		storage.GetLogger().Fatal(err)
 	}
 	fmt.Println("-----got link-----", link)
 
