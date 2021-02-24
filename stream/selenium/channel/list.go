@@ -39,6 +39,10 @@ var ChanManifestPatterns = map[Channel][]*Pattern{
 			Scheme:  `https:\/\/matchtv(.)+(\.m3u8)`,
 			Attempt: 0,
 		},
+		&Pattern{
+			Scheme:  `https:\/\/bl.zxz.su(.)+(\.m3u8)`,
+			Attempt: 0,
+		},
 	},
 	FIRST: {
 		&Pattern{
