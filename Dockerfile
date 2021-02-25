@@ -10,7 +10,9 @@ RUN go mod download
 COPY . .
 RUN make build
 
-FROM jrottenberg/ffmpeg:4.3-alpine
+FROM alpine
+COPY --from=mwader/static-ffmpeg:4.3.2 /ffmpeg /usr/local/bin/
+
 RUN apk update && \
     apk add --no-cache tzdata
 

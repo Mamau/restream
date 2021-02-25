@@ -53,5 +53,9 @@ var ChanManifestPatterns = map[Channel][]*Pattern{
 			Scheme:  `https:\/\/cdn2.1internet.tv(.)+(\.mpd\?[a-z]{1}\=[0-9]+)`,
 			Attempt: 0,
 		},
+		&Pattern{
+			Scheme:  `https:\/\/[a-z\/0-9\._-]+(\.mpd\?[a-z]{1}\=[0-9]+)`,
+			Attempt: 0,
+		},
 	},
 }
