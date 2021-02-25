@@ -15,6 +15,8 @@ func Fetch1tvManifest(wd selenium.WebDriver) string {
 	}
 	fmt.Println("-----wait 3 sec-----")
 	time.Sleep(time.Second * 3)
+	//fmt.Println("-----make screenshot-----")
+	//makeScreenshot(wd, channel.FIRST)
 
 	fmt.Println("-----searching manifest-----")
 	link, err := findSourceAtLogs(wd, channel.ChanManifestPatterns[channel.FIRST])
