@@ -27,7 +27,7 @@ func findSourceAtLogs(wd selenium.WebDriver, patterns []*channel.Pattern) (strin
 			}
 		}
 	}
-
+	storage.GetLogger().Info(fmt.Sprintf("no find manifest in heap: %s", message))
 	return "", errors.New("live file is not found in logs")
 }
 

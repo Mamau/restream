@@ -166,6 +166,9 @@ func (s *Stream) runCommand(c []string) {
 }
 
 func (s *Stream) isManifestAvailable(t *time.Ticker) {
+	if s.Manifest == "" {
+		storage.GetLogger().Warning(fmt.Sprintf("empty manifest, on stream %s", s.Name))
+	}
 	resp, err := http.Get(s.Manifest)
 	if err != nil {
 		storage.GetLogger().Error(err)
