@@ -62,8 +62,8 @@ func (s *Stream) Start() bool {
 		return false
 	}
 
-	go s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
-	return true
+	s.IsStarted = s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
+	return s.IsStarted
 }
 
 func (s *Stream) StartWithDeadLine() bool {
@@ -116,6 +116,7 @@ func (s *Stream) StartViaSelenium(withDeadline bool) bool {
 
 func (s *Stream) Stop() {
 	if !s.IsStarted {
+		storage.GetLogger().Warning(fmt.Sprintf("stream %s is not started", s.Name))
 		return
 	}
 	s.stopCommand()
@@ -133,7 +134,7 @@ func (s *Stream) Download(d Downloader) {
 	}
 }
 
-func (s *Stream) runCommand(c []string) {
+func (s *Stream) runCommand(c []string) bool {
 	stopAfterInfo := ""
 	if s.DeadLine != nil {
 		format := "15:04:05 02.01.2006"
@@ -145,9 +146,8 @@ func (s *Stream) runCommand(c []string) {
 	if err := s.command.Start(); err != nil {
 		storage.GetLogger().Error(err)
 		s.stopCommand()
-		return
+		return false
 	}
-	s.IsStarted = true
 
 	ticker := time.NewTicker(60 * time.Second)
 	go func() {
@@ -162,6 +162,8 @@ func (s *Stream) runCommand(c []string) {
 			}
 		}
 	}()
+
+	return true
 }
 
 func (s *Stream) isManifestAvailable(t *time.Ticker) {
@@ -194,11 +196,6 @@ func (s *Stream) Restart() {
 func (s *Stream) stopCommand() {
 	storage.GetLogger().Info("stopping command..., PID %v, stream %v cmd %s\n", s.command.Process.Pid, s.Name, s.command.String())
 
-	if _, err := GetLive().DeleteStream(s.Name); err != nil {
-		storage.GetLogger().Error(err)
-		return
-	}
-
 	if err := s.command.Process.Signal(syscall.SIGINT); err != nil {
 		storage.GetLogger().Error(err)
 		if err := s.command.Process.Kill(); err != nil {
@@ -209,6 +206,11 @@ func (s *Stream) stopCommand() {
 
 	if _, err := s.command.Process.Wait(); err != nil {
 		storage.GetLogger().Fatal(err)
+	}
+
+	if _, err := GetLive().DeleteStream(s.Name); err != nil {
+		storage.GetLogger().Error(err)
+		return
 	}
 
 	s.IsStarted = false

@@ -22,3 +22,7 @@ up-fresh: ## Start project
 	docker-compose down
 	make build-image
 	docker-compose up
+
+debug: ## run for debug
+	docker run -it -d -p 1935:1935 -p 8080:80 --rm alfg/nginx-rtmp
+	docker run -d -p 4444:4444 -v /dev/shm:/dev/shm selenium/standalone-chrome
