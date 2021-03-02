@@ -116,7 +116,6 @@ func (s *Stream) StartViaSelenium(withDeadline bool) bool {
 
 func (s *Stream) Stop() {
 	if !s.IsStarted {
-		storage.GetLogger().Warning("stopped stream %s is not started o.0", s.Name)
 		return
 	}
 	s.stopCommand()
