@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/mamau/restream/storage"
-	"github.com/mamau/restream/stream/selenium"
-	"github.com/mamau/restream/stream/selenium/channel"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/mamau/restream/storage"
+	"github.com/mamau/restream/stream/selenium"
+	"github.com/mamau/restream/stream/selenium/channel"
 )
 
 type Streamer interface {
@@ -62,7 +64,12 @@ func (s *Stream) Start() bool {
 		return false
 	}
 
-	s.IsStarted = s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
+	if isTest, _ := strconv.ParseBool(os.Getenv("IS_TEST")); isTest {
+		s.IsStarted = s.runTestCommand()
+	} else {
+		s.IsStarted = s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
+	}
+
 	return s.IsStarted
 }
 
@@ -84,20 +91,39 @@ func (s *Stream) StartWithDeadLine() bool {
 		if now.After(stop) {
 			now = now.Add(time.Hour * 24)
 		}
-		stop = time.Date(now.Year(), now.Month(), now.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.UTC)
+		stop = time.Date(now.Year(), now.Month(), now.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.Local)
 		s.DeadLine = &stop
 	}
 
 	isStated := s.Start()
 
 	if isStated {
-		end := s.DeadLine.Unix() - time.Now().Unix()
-
-		duration := time.Duration(end) * time.Second
-		s.afterDeadline = time.AfterFunc(duration, s.Stop)
+		//end := s.DeadLine.Unix() - time.Now().Unix()
+		//
+		//duration := time.Duration(end) * time.Second
+		//s.afterDeadline = time.AfterFunc(duration, s.Stop)
+		go s.stopAfterDuration()
 	}
 
 	return isStated
+}
+
+func (s *Stream) stopAfterDuration() {
+	end := s.DeadLine.Unix() - time.Now().Unix()
+	duration := time.Duration(end) * time.Second
+	hasCome := make(chan bool)
+
+	time.AfterFunc(duration, func() {
+		hasCome <- true
+	})
+
+	for {
+		select {
+		case <-hasCome:
+			s.Stop()
+			return
+		}
+	}
 }
 
 func (s *Stream) StartViaSelenium(withDeadline bool) bool {
@@ -132,6 +158,17 @@ func (s *Stream) Download(d Downloader) {
 		storage.GetLogger().Error(err)
 		return
 	}
+}
+func (s *Stream) runTestCommand() bool {
+	s.command = exec.Command("ping", "ya.ru")
+	s.command.Stdout = os.Stdout
+	s.command.Stderr = os.Stderr
+	if err := s.command.Start(); err != nil {
+		storage.GetLogger().Error(err)
+		s.stopCommand()
+		return false
+	}
+	return true
 }
 
 func (s *Stream) runCommand(c []string) bool {

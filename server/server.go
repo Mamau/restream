@@ -3,16 +3,17 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/go-chi/chi"
-	"github.com/mamau/restream/routes/api/v1"
-	"github.com/mamau/restream/stream/scheduler"
-	"github.com/mamau/restream/stream/selenium/channel"
 	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/go-chi/chi"
+	v1 "github.com/mamau/restream/routes/api/v1"
+	"github.com/mamau/restream/stream/scheduler"
+	"github.com/mamau/restream/stream/selenium/channel"
 )
 
 func newRouter() http.Handler {

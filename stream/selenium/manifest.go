@@ -3,13 +3,15 @@ package selenium
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
+
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/mamau/restream/stream/selenium/strategy"
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
 	seleLog "github.com/tebeka/selenium/log"
-	"log"
-	"os"
 )
 
 type Selenium struct {
@@ -44,6 +46,9 @@ func createWebDriver() (selenium.WebDriver, error) {
 }
 
 func GetManifest(ch channel.Channel) (string, error) {
+	if isTest, _ := strconv.ParseBool(os.Getenv("IS_TEST")); isTest {
+		return "https://ya.ru", nil
+	}
 	s := NewSelenium()
 	wd := s.wd
 

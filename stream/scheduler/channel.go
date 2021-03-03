@@ -1,11 +1,12 @@
 package scheduler
 
 import (
+	"time"
+
 	"github.com/mamau/restream/storage"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/selenium/channel"
 	"github.com/rk/go-cron"
-	"time"
 )
 
 type TimeTable struct {
@@ -69,8 +70,8 @@ func (c *Channel) createTimeTable(startAt, stopAt string) *TimeTable {
 		tt = tt.Add(time.Hour * 24)
 	}
 
-	start = time.Date(t.Year(), t.Month(), t.Day(), start.Hour(), start.Minute(), start.Second(), 0, time.UTC)
-	stop = time.Date(tt.Year(), tt.Month(), tt.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.UTC)
+	start = time.Date(t.Year(), t.Month(), t.Day(), start.Hour(), start.Minute(), start.Second(), 0, time.Local)
+	stop = time.Date(tt.Year(), tt.Month(), tt.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.Local)
 
 	return &TimeTable{StartAt: start, StopAt: stop}
 }
