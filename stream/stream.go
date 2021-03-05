@@ -112,8 +112,9 @@ func (s *Stream) stopAfterDuration() {
 	end := s.DeadLine.Unix() - time.Now().Unix()
 	duration := time.Duration(end) * time.Second
 	hasCome := make(chan bool)
-
+	storage.GetLogger().Info(fmt.Sprintf("schedule stop for %s after %v\n", s.Name, duration))
 	time.AfterFunc(duration, func() {
+		storage.GetLogger().Info(fmt.Sprintf("stop it %s now\n", s.Name))
 		hasCome <- true
 	})
 
@@ -142,6 +143,7 @@ func (s *Stream) StartViaSelenium(withDeadline bool) bool {
 
 func (s *Stream) Stop() {
 	if !s.IsStarted {
+		fmt.Println("sopped stream is not stared")
 		return
 	}
 	s.stopCommand()
