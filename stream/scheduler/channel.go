@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/mamau/restream/storage"
@@ -36,6 +37,12 @@ func (c *Channel) scheduleChannel() {
 			c.Stream.DeadLine = &v.StopAt
 			c.Stream.StartViaSelenium(true)
 		})
+
+		if time.Now().After(v.StartAt) && time.Now().Before(v.StopAt) {
+			fmt.Printf("start %s immediately\n", c.Stream.Name)
+			c.Stream.DeadLine = &v.StopAt
+			c.Stream.StartViaSelenium(true)
+		}
 	}
 }
 

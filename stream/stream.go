@@ -122,6 +122,8 @@ func (s *Stream) stopAfterDuration() {
 		select {
 		case <-hasCome:
 			s.Stop()
+			nextDay := s.DeadLine.AddDate(0, 0, 1)
+			s.DeadLine = &nextDay
 			return
 		}
 	}
