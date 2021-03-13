@@ -51,7 +51,7 @@ func startChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strm.StartViaSelenium(true) {
+	if !strm.StartViaSelenium() {
 		response.Json(w, "error while starting channel", http.StatusBadRequest)
 		return
 	}

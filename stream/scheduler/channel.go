@@ -34,14 +34,18 @@ func CreateScheduledChannel(chName channel.Channel) *Channel {
 func (c *Channel) scheduleChannel() {
 	for _, v := range c.TimeTables {
 		cron.NewDailyJob(int8(v.StartAt.Hour()), int8(v.StartAt.Minute()), int8(v.StartAt.Second()), func(t time.Time) {
-			c.Stream.DeadLine = &v.StopAt
-			c.Stream.StartViaSelenium(true)
+			fmt.Println("Start by cron")
+			c.Stream.StartViaSelenium()
+		})
+
+		cron.NewDailyJob(int8(v.StopAt.Hour()), int8(v.StopAt.Minute()), int8(v.StopAt.Second()), func(t time.Time) {
+			fmt.Println("Stop by cron")
+			c.Stream.Stop()
 		})
 
 		if time.Now().After(v.StartAt) && time.Now().Before(v.StopAt) {
 			fmt.Printf("start %s immediately\n", c.Stream.Name)
-			c.Stream.DeadLine = &v.StopAt
-			c.Stream.StartViaSelenium(true)
+			c.Stream.StartViaSelenium()
 		}
 	}
 }

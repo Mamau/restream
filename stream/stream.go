@@ -31,13 +31,10 @@ type Downloader interface {
 }
 
 type Stream struct {
-	IsStarted     bool
-	Manifest      string `json:"manifest"`
-	Name          string `json:"name"`
-	logPath       *os.File
-	DeadLine      *time.Time
-	command       *exec.Cmd
-	afterDeadline *time.Timer
+	IsStarted bool
+	Manifest  string `json:"manifest"`
+	Name      string `json:"name"`
+	command   *exec.Cmd
 }
 
 func NewStream() *Stream {
@@ -73,63 +70,7 @@ func (s *Stream) Start() bool {
 	return s.IsStarted
 }
 
-func (s *Stream) StartWithDeadLine() bool {
-	if s.IsStarted {
-		storage.GetLogger().Warning(fmt.Sprintf("stream %v already started\n", s.Name))
-		return false
-	}
-
-	if s.DeadLine == nil {
-		storage.GetLogger().Info("no deadline... set default for 04:00:00")
-		format := "15:04:05"
-		now := time.Now()
-		stop, err := time.Parse(format, "04:00:00")
-		if err != nil {
-			storage.GetLogger().Fatal(err)
-		}
-
-		if now.After(stop) {
-			now = now.Add(time.Hour * 24)
-		}
-		stop = time.Date(now.Year(), now.Month(), now.Day(), stop.Hour(), stop.Minute(), stop.Second(), 0, time.Local)
-		s.DeadLine = &stop
-	}
-
-	isStated := s.Start()
-
-	if isStated {
-		//end := s.DeadLine.Unix() - time.Now().Unix()
-		//
-		//duration := time.Duration(end) * time.Second
-		//s.afterDeadline = time.AfterFunc(duration, s.Stop)
-		go s.stopAfterDuration()
-	}
-
-	return isStated
-}
-
-func (s *Stream) stopAfterDuration() {
-	end := s.DeadLine.Unix() - time.Now().Unix()
-	duration := time.Duration(end) * time.Second
-	hasCome := make(chan bool)
-	storage.GetLogger().Info(fmt.Sprintf("schedule stop for %s after %v\n", s.Name, duration))
-	time.AfterFunc(duration, func() {
-		storage.GetLogger().Info(fmt.Sprintf("stop it %s now\n", s.Name))
-		hasCome <- true
-	})
-
-	for {
-		select {
-		case <-hasCome:
-			s.Stop()
-			nextDay := s.DeadLine.AddDate(0, 0, 1)
-			s.DeadLine = &nextDay
-			return
-		}
-	}
-}
-
-func (s *Stream) StartViaSelenium(withDeadline bool) bool {
+func (s *Stream) StartViaSelenium() bool {
 	manifest, err := selenium.GetManifest(channel.Channel(s.Name))
 	if err != nil {
 		storage.GetLogger().Fatal(errors.New(fmt.Sprintf("cant fetch manifest via selenium %s, err: %s\n", s.Name, err.Error())))
@@ -137,15 +78,12 @@ func (s *Stream) StartViaSelenium(withDeadline bool) bool {
 
 	s.Manifest = manifest
 
-	if withDeadline {
-		return s.StartWithDeadLine()
-	}
 	return s.Start()
 }
 
 func (s *Stream) Stop() {
 	if !s.IsStarted {
-		fmt.Println("sopped stream is not stared")
+		fmt.Println("stopped stream is not stared")
 		return
 	}
 	s.stopCommand()
@@ -175,13 +113,7 @@ func (s *Stream) runTestCommand() bool {
 }
 
 func (s *Stream) runCommand(c []string) bool {
-	stopAfterInfo := ""
-	if s.DeadLine != nil {
-		format := "15:04:05 02.01.2006"
-		stopAfterInfo = fmt.Sprintf(", stop after deadline: %v\n", s.DeadLine.Format(format))
-	}
-
-	storage.GetLogger().Info("starting, stream %s%s\n", s.Name, stopAfterInfo)
+	storage.GetLogger().Info("starting, stream %s\n", s.Name)
 	s.command = exec.Command("ffmpeg", c...)
 	if err := s.command.Start(); err != nil {
 		storage.GetLogger().Error(err)
@@ -211,6 +143,13 @@ func (s *Stream) isManifestAvailable(t *time.Ticker) {
 		storage.GetLogger().Warning(fmt.Sprintf("empty manifest, on stream %s", s.Name))
 	}
 	resp, err := http.Get(s.Manifest)
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			storage.GetLogger().Fatal(err)
+		}
+	}()
+
 	if err != nil {
 		storage.GetLogger().Error(err)
 		return
@@ -228,9 +167,7 @@ func (s *Stream) Restart() {
 	storage.GetLogger().Info("restart stream %s \n", s.Name)
 	s.Stop()
 
-	hasDeadline := s.DeadLine != nil
-
-	s.StartViaSelenium(hasDeadline)
+	s.StartViaSelenium()
 }
 
 func (s *Stream) stopCommand() {
