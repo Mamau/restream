@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/getsentry/sentry-go v0.9.0
 	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/grafov/m3u8 v0.11.1
 	github.com/joho/godotenv v1.3.0
 	github.com/rk/go-cron v0.0.0-20200210175235-e0dd106ca134
 	github.com/stretchr/testify v1.6.1 // indirect

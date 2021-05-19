@@ -2,7 +2,7 @@ package contraints
 
 import (
 	"fmt"
-	"github.com/mamau/restream/stream/selenium/channel"
+	"github.com/mamau/restream/channel"
 	"github.com/thedevsaddam/govalidator"
 	"net/http"
 	"net/url"
@@ -32,7 +32,7 @@ func isFileManifestAvailable(_ string, _ string, _ string, value interface{}) er
 	return nil
 }
 
-func availableChannels(_ string, _ string, _ string, value interface{}) error {
+func availableChannels(_, _, _ string, value interface{}) error {
 	switch value {
 	case string(channel.TNT):
 		fallthrough

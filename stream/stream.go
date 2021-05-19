@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/grafov/m3u8"
 	"net/http"
 	"os"
 	"os/exec"
@@ -11,9 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mamau/restream/channel"
 	"github.com/mamau/restream/storage"
-	"github.com/mamau/restream/stream/selenium"
-	"github.com/mamau/restream/stream/selenium/channel"
 )
 
 type Streamer interface {
@@ -70,13 +70,18 @@ func (s *Stream) Start() bool {
 	return s.IsStarted
 }
 
-func (s *Stream) StartViaSelenium() bool {
-	manifest, err := selenium.GetManifest(channel.Channel(s.Name))
-	if err != nil {
-		storage.GetLogger().Fatal(errors.New(fmt.Sprintf("cant fetch manifest via selenium %s, err: %s\n", s.Name, err.Error())))
+func (s *Stream) StartByIPTV() bool {
+	source := channel.NewSource()
+	var manifest *m3u8.MediaSegment
+	for {
+		manifest = source.GetManifestByName(channel.ChannelName(s.Name))
+		if manifest != nil {
+			fmt.Printf("Found manifest for %s \n", s.Name)
+			break
+		}
 	}
 
-	s.Manifest = manifest
+	s.Manifest = manifest.URI
 
 	return s.Start()
 }
@@ -167,7 +172,7 @@ func (s *Stream) Restart() {
 	storage.GetLogger().Info("restart stream %s \n", s.Name)
 	s.Stop()
 
-	s.StartViaSelenium()
+	s.StartByIPTV()
 }
 
 func (s *Stream) stopCommand() {

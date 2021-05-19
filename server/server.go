@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/mamau/restream/channel"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -13,7 +14,6 @@ import (
 	"github.com/go-chi/chi"
 	v1 "github.com/mamau/restream/routes/api/v1"
 	"github.com/mamau/restream/stream/scheduler"
-	"github.com/mamau/restream/stream/selenium/channel"
 )
 
 func newRouter() http.Handler {
@@ -65,7 +65,7 @@ func Start() {
 }
 
 func scheduleChannels() {
-	for _, v := range []channel.Channel{channel.TNT, channel.FIRST} {
+	for _, v := range []channel.ChannelName{channel.TNT, channel.FIRST} {
 		fmt.Printf("schedule channel: %s \n", v)
 		scheduler.CreateScheduledChannel(v)
 	}

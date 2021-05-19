@@ -12,6 +12,7 @@ bc: ## Build and copy to server.
 	scp bin/$(PROJECT_NAME) $(SERVER_LOGIN):$(SERVER_DIR)
 
 build-image: ## Build docker image
+	make build
 	docker build -t mamau/restream:latest .
 	docker push mamau/restream
 
@@ -25,4 +26,3 @@ up-fresh: ## Start project
 
 debug: ## run for debug
 	docker run -it -d -p 1935:1935 -p 8080:80 --rm alfg/nginx-rtmp
-	docker run -d -p 4444:4444 -v /dev/shm:/dev/shm selenium/standalone-chrome

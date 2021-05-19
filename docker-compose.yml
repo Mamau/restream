@@ -12,14 +12,6 @@ services:
     volumes:
       - ./:/storage
 
-  selenium:
-    container_name: selenium
-    image: selenium/standalone-chrome:latest
-    ports:
-      - 4444:4444
-    volumes:
-      - /dev/shm:/dev/shm
-
   nginx_rtmp:
     container_name: nginx-rtmp
     image: alfg/nginx-rtmp:latest
