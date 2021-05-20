@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
-	v1 "github.com/mamau/restream/routes/api/v1"
+	"github.com/mamau/restream/routes/api/v1"
 	"github.com/mamau/restream/stream/scheduler"
 )
 
@@ -39,11 +39,11 @@ func newRouter() http.Handler {
 func Start() {
 	handler := newRouter()
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")),
-		Handler: handler,
-		//ReadTimeout:  5 * time.Second,
-		//WriteTimeout: 10 * time.Second,
-		//IdleTimeout:  120 * time.Second,
+		Addr:         fmt.Sprintf(":%s", os.Getenv("SERVER_PORT")),
+		Handler:      handler,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {

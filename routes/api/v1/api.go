@@ -3,13 +3,13 @@ package v1
 import (
 	"fmt"
 	"github.com/go-chi/chi"
+	"github.com/mamau/restream/channel"
 	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/routes/response"
 	"github.com/mamau/restream/routes/validator"
 	"github.com/mamau/restream/routes/validator/contraints"
 	"github.com/mamau/restream/stream"
 	"github.com/mamau/restream/stream/scheduler"
-	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -93,24 +93,23 @@ func streams(w http.ResponseWriter, r *http.Request) {
 	response.JsonStruct(w, stream.GetLive().AllStreams(), http.StatusOK)
 }
 
-func index(w http.ResponseWriter, r *http.Request) {
-	indexFile, _ := ioutil.ReadFile("./dist/index.html")
-	_, err := w.Write(indexFile)
-	if err != nil {
-		log.Fatalf("Error wrtie response %v", err)
-	}
+func channels(w http.ResponseWriter, r *http.Request) {
+	source := channel.NewSource()
+	list := source.GetChannels()
+
+	response.JsonStruct(w, list, http.StatusOK)
 }
 
 func NewRouter() http.Handler {
 	r := chi.NewRouter()
 
-	r.Get("/player", index)
 	r.Post("/stream-start", streamStart)
 	r.Post("/start-channel", startChannel)
 	r.Post("/stream-stop", streamStop)
 	r.Post("/stream-restart", streamRestart)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
+	r.Get("/channels", channels)
 
 	return r
 }

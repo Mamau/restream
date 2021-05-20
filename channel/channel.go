@@ -65,7 +65,7 @@ func cleanSegments(list []*m3u8.MediaSegment) []*m3u8.MediaSegment {
 			continue
 		}
 
-		if strings.HasPrefix(item.Title, "[") {
+		if strings.HasPrefix(item.Title, "[") || strings.HasPrefix(item.Title, " ") {
 			continue
 		}
 
