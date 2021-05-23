@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/grafov/m3u8"
 	"net/http"
 	"os"
 	"os/exec"
@@ -72,16 +71,15 @@ func (s *Stream) Start() bool {
 
 func (s *Stream) StartByIPTV() bool {
 	source := channel.NewSource()
-	var manifest *m3u8.MediaSegment
-	for {
-		manifest = source.GetManifestByName(channel.ChannelName(s.Name))
-		if manifest != nil {
-			fmt.Printf("Found manifest for %s \n", s.Name)
-			break
-		}
+	var manifest *channel.Channel
+
+	manifest = source.GetManifestByName(s.Name)
+	if manifest == nil {
+		fmt.Printf("Not Found manifest for %s \n", s.Name)
+		return false
 	}
 
-	s.Manifest = manifest.URI
+	s.Manifest = manifest.Uri
 
 	return s.Start()
 }

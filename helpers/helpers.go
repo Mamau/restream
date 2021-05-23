@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func JsonRequestToMap(r *http.Request, s interface{}) error {
@@ -83,6 +84,56 @@ func ByteHuman(length int, decimals int) (out string) {
 	}
 
 	return fmt.Sprintf("%d.%s %s", i, remainderString[:decimals], unit)
+}
+
+func CyrillicToLatin(name string) string {
+	var translated []string
+	dict := map[string]string{
+		"а": "a",
+		"б": "b",
+		"в": "v",
+		"г": "g",
+		"д": "d",
+		"е": "e",
+		"ё": "e",
+		"ж": "zh",
+		"з": "z",
+		"и": "i",
+		"й": "i",
+		"к": "k",
+		"л": "l",
+		"м": "m",
+		"н": "n",
+		"о": "o",
+		"п": "p",
+		"р": "r",
+		"с": "s",
+		"т": "t",
+		"у": "u",
+		"ф": "f",
+		"х": "h",
+		"ц": "ts",
+		"ч": "ch",
+		"ш": "sh",
+		"щ": "sh",
+		"ъ": "",
+		"ы": "i",
+		"ь": "",
+		"э": "e",
+		"ю": "u",
+		"я": "ia",
+		" ": "_",
+	}
+
+	for _, v := range strings.Split(name, "") {
+		if val, ok := dict[strings.ToLower(v)]; ok {
+			v = val
+		}
+
+		translated = append(translated, v)
+	}
+
+	return strings.ToLower(strings.Join(translated, ""))
 }
 
 func CurrentDir() string {

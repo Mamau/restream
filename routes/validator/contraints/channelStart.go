@@ -13,7 +13,7 @@ type ChannelStart struct {
 
 func (c *ChannelStart) Validate(r *http.Request) url.Values {
 	rules := govalidator.MapData{
-		"name": []string{"required", "available_channels"},
+		"name": []string{"required"},
 	}
 
 	opts := govalidator.Options{
