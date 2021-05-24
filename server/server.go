@@ -19,12 +19,6 @@ import (
 func newRouter() http.Handler {
 	router := chi.NewRouter()
 
-	//router.Use(middleware.RealIP)
-	//router.Use(middleware.Logger)
-	//router.Use(middleware.Recoverer)
-	//router.Use(middleware.Timeout(60 * time.Second))
-	//router.Use(apiMiddleware.IsNginxRestreamRunning)
-
 	router.HandleFunc("/debug/pprof/*", pprof.Index)
 	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	router.HandleFunc("/debug/pprof/profile", pprof.Profile)

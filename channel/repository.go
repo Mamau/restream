@@ -3,7 +3,6 @@ package channel
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/grafov/m3u8"
 	"github.com/mamau/restream/helpers"
@@ -30,7 +29,6 @@ func (s *SourceRepository) GetManifestByName(name string) *Channel {
 	list := s.GetChannels()
 
 	for _, item := range list {
-		fmt.Println(item.Slug)
 		if item.Slug == strings.ToLower(name) {
 			return &item
 		}
@@ -44,17 +42,16 @@ func (s *SourceRepository) GetChannels() []Channel {
 
 	if list == "" {
 		data := fetchSegments()
-		b, errMarshal := json.Marshal(data)
+		mData, errMarshal := json.Marshal(data)
 		if errMarshal != nil {
 			storage.GetLogger().Fatal(errMarshal)
 		}
-		list = string(b)
-		s.redis.Set(ctx, ChannelsKey, b, 24*time.Hour)
+		list = string(mData)
+		s.redis.Set(ctx, ChannelsKey, mData, 24*time.Hour)
 	}
 
 	var segment []m3u8.MediaSegment
-	err := json.Unmarshal([]byte(list), &segment)
-	if err != nil {
+	if err := json.Unmarshal([]byte(list), &segment); err != nil {
 		storage.GetLogger().Fatal(err)
 	}
 

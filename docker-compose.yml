@@ -12,6 +12,12 @@ services:
     volumes:
       - ./:/storage
 
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - ${REDIS_PORT}:6379
+
   nginx_rtmp:
     container_name: nginx-rtmp
     image: alfg/nginx-rtmp:latest

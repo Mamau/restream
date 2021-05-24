@@ -75,7 +75,7 @@ func (s *Stream) StartByIPTV() bool {
 
 	manifest = source.GetManifestByName(s.Name)
 	if manifest == nil {
-		fmt.Printf("Not Found manifest for %s \n", s.Name)
+		fmt.Printf("Not Found channel for %s \n", s.Name)
 		return false
 	}
 
