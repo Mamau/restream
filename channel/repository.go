@@ -56,7 +56,12 @@ func (s *SourceRepository) GetChannels() []Channel {
 	}
 
 	for _, v := range segment {
-		listOfChannels = append(listOfChannels, Channel{Name: v.Title, Uri: v.URI, Slug: helpers.CyrillicToLatin(v.Title)})
+		ch := Channel{
+			Name: v.Title,
+			Uri:  v.URI,
+			Slug: helpers.CyrillicToLatin(v.Title),
+		}
+		listOfChannels = append(listOfChannels, ch)
 	}
 
 	return listOfChannels
