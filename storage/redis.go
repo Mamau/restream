@@ -13,7 +13,7 @@ var redisInstance *redis.Client
 func NewRedis() *redis.Client {
 	single.Do(func() {
 		redisInstance = redis.NewClient(&redis.Options{
-			Addr:     fmt.Sprintf("redis:%s", os.Getenv("REDIS_PORT")),
+			Addr:     fmt.Sprintf("redis-restream:%s", os.Getenv("REDIS_PORT")),
 			Password: "",
 			DB:       0,
 		})

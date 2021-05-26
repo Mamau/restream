@@ -29,7 +29,7 @@ func (s *SourceRepository) GetManifestByName(name string) *Channel {
 	list := s.GetChannels()
 
 	for _, item := range list {
-		if item.Slug == strings.ToLower(name) {
+		if item.Slug == helpers.CyrillicToLatin(strings.ToLower(name)) {
 			return &item
 		}
 	}
