@@ -13,12 +13,13 @@ type ChannelName string
 var playlists = []string{
 	"https://iptvmaster.ru/russia.m3u",
 	"https://webarmen.com/my/iptv/auto.nogrp.m3u",
+	"http://iptv.apka.net.ua/apka.m3u",
 }
 
 const (
 	TNT   ChannelName = "ТНТ"
 	FIRST ChannelName = "Первый канал"
-	MATCH ChannelName = "Матч Премьер"
+	MATCH ChannelName = "Матч!"
 )
 
 var TimeTable = map[ChannelName][][]string{

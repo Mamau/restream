@@ -61,8 +61,21 @@ func (s *SourceRepository) GetChannels() []Channel {
 			Uri:  v.URI,
 			Slug: helpers.CyrillicToLatin(v.Title),
 		}
+
+		if _, isset := findChannel(listOfChannels, ch.Slug); isset {
+			continue
+		}
 		listOfChannels = append(listOfChannels, ch)
 	}
 
 	return listOfChannels
+}
+
+func findChannel(slice []Channel, val string) (int, bool) {
+	for i, item := range slice {
+		if item.Slug == val {
+			return i, true
+		}
+	}
+	return -1, false
 }
