@@ -3,7 +3,6 @@ package v1
 import (
 	"fmt"
 	"github.com/go-chi/chi"
-	"github.com/mamau/restream/channel"
 	"github.com/mamau/restream/helpers"
 	"github.com/mamau/restream/routes/response"
 	"github.com/mamau/restream/routes/validator"
@@ -25,38 +24,6 @@ func streamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Json(w, "Stream starting...", http.StatusOK)
-}
-
-func streamRestart(w http.ResponseWriter, r *http.Request) {
-	type dataStream struct {
-		Name string
-	}
-	var ds dataStream
-
-	if err := helpers.JsonRequestToMap(r, &ds); err != nil {
-		log.Printf("error while parse request stream: %s, error: %s\n", ds.Name, err.Error())
-		response.Json(w, "error while parse request", http.StatusBadRequest)
-		return
-	}
-
-	if strm, err := stream.GetLive().GetStream(ds.Name); err == nil {
-		strm.Restart()
-		response.Json(w, "Stream restarting...", http.StatusOK)
-	}
-}
-
-func startChannel(w http.ResponseWriter, r *http.Request) {
-	var strm = stream.NewStream()
-	if !validator.Validate(w, r, &contraints.ChannelStart{Stream: strm}) {
-		return
-	}
-
-	if !strm.StartByIPTV() {
-		response.Json(w, "error while starting channel", http.StatusBadRequest)
-		return
-	}
-
-	response.Json(w, fmt.Sprintf("Channel %s starting...", strm.Name), http.StatusOK)
 }
 
 func streamSchedulingDownload(w http.ResponseWriter, r *http.Request) {
@@ -93,23 +60,13 @@ func streams(w http.ResponseWriter, r *http.Request) {
 	response.JsonStruct(w, stream.GetLive().AllStreams(), http.StatusOK)
 }
 
-func channels(w http.ResponseWriter, r *http.Request) {
-	source := channel.NewSource()
-	list := source.GetChannels()
-
-	response.JsonStruct(w, list, http.StatusOK)
-}
-
 func NewRouter() http.Handler {
 	r := chi.NewRouter()
 
 	r.Post("/stream-start", streamStart)
-	r.Post("/start-channel", startChannel)
 	r.Post("/stream-stop", streamStop)
-	r.Post("/stream-restart", streamRestart)
 	r.Post("/stream-schedule-download", streamSchedulingDownload)
 	r.Get("/streams", streams)
-	r.Get("/channels", channels)
 
 	return r
 }

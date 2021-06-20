@@ -4,15 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/mamau/restream/storage"
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/mamau/restream/channel"
-	"github.com/mamau/restream/storage"
 )
 
 type Streamer interface {
@@ -20,7 +17,6 @@ type Streamer interface {
 	Start() bool
 	Stop()
 	Download(Downloader)
-	Restart()
 }
 
 type Downloader interface {
@@ -60,28 +56,9 @@ func (s *Stream) Start() bool {
 		return false
 	}
 
-	if isTest, _ := strconv.ParseBool(os.Getenv("IS_TEST")); isTest {
-		s.IsStarted = s.runTestCommand()
-	} else {
-		s.IsStarted = s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
-	}
+	s.IsStarted = s.runCommand([]string{"-re", "-i", s.Manifest, "-acodec", "copy", "-vcodec", "copy", "-f", "flv", s.getStreamAddress()})
 
 	return s.IsStarted
-}
-
-func (s *Stream) StartByIPTV() bool {
-	source := channel.NewSource()
-	var manifest *channel.Channel
-
-	manifest = source.GetManifestByName(s.Name)
-	if manifest == nil {
-		fmt.Printf("Not Found channel for %s \n", s.Name)
-		return false
-	}
-
-	s.Manifest = manifest.Uri
-
-	return s.Start()
 }
 
 func (s *Stream) Stop() {
@@ -161,16 +138,8 @@ func (s *Stream) isManifestAvailable(t *time.Ticker) {
 	if isOk := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices; !isOk {
 		storage.GetLogger().Warning("manifest is not available %s\n", s.Manifest)
 		t.Stop()
-		s.Restart()
 		return
 	}
-}
-
-func (s *Stream) Restart() {
-	storage.GetLogger().Info("restart stream %s \n", s.Name)
-	s.Stop()
-
-	s.StartByIPTV()
 }
 
 func (s *Stream) stopCommand() {

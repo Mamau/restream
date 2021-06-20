@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/mamau/restream/channel"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/mamau/restream/routes/api/v1"
-	"github.com/mamau/restream/stream/scheduler"
 )
 
 func newRouter() http.Handler {
@@ -42,11 +40,10 @@ func Start() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Fatalf("cant listen")
+			log.Fatalf("cant listen, err %s", err)
 		}
 	}()
 
-	scheduleChannels()
 	fmt.Printf("Server starting at: http://localhost%v\n", srv.Addr)
 
 	c := make(chan os.Signal, 1)
@@ -56,11 +53,4 @@ func Start() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)
-}
-
-func scheduleChannels() {
-	for _, v := range []channel.ChannelName{channel.TNT, channel.FIRST} {
-		fmt.Printf("schedule channel: %s \n", v)
-		scheduler.CreateScheduledChannel(v)
-	}
 }

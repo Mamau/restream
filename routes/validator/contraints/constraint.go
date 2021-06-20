@@ -2,7 +2,6 @@ package contraints
 
 import (
 	"fmt"
-	"github.com/mamau/restream/channel"
 	"github.com/thedevsaddam/govalidator"
 	"net/http"
 	"net/url"
@@ -14,7 +13,6 @@ type Validatable interface {
 
 func init() {
 	govalidator.AddCustomRule("file_manifest_available", isFileManifestAvailable)
-	govalidator.AddCustomRule("available_channels", availableChannels)
 }
 
 func isFileManifestAvailable(_ string, _ string, _ string, value interface{}) error {
@@ -30,17 +28,4 @@ func isFileManifestAvailable(_ string, _ string, _ string, value interface{}) er
 	}
 
 	return nil
-}
-
-func availableChannels(_, _, _ string, value interface{}) error {
-	switch value {
-	case string(channel.TNT):
-		fallthrough
-	case string(channel.FIRST):
-		fallthrough
-	case string(channel.MATCH):
-		return nil
-	default:
-		return fmt.Errorf("Unknown channel %s\n", value)
-	}
 }
